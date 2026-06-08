@@ -3,10 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
 )
+
+var errInvalidRate = errors.New("invalid exchange rate from source")
 
 // ExchangeRate is the USD/CRC reference rate (colones per dollar).
 type ExchangeRate struct {
@@ -65,26 +68,28 @@ func fetchHaciendaRate(ctx context.Context) (ExchangeRate, error) {
 	}
 	defer resp.Body.Close()
 
+	// Hacienda returns compra/venta at the top level: {"venta":{"fecha","valor"},"compra":{...}}
 	var body struct {
-		Dolar struct {
-			Compra struct {
-				Fecha string  `json:"fecha"`
-				Valor float64 `json:"valor"`
-			} `json:"compra"`
-			Venta struct {
-				Fecha string  `json:"fecha"`
-				Valor float64 `json:"valor"`
-			} `json:"venta"`
-		} `json:"dolar"`
+		Compra struct {
+			Fecha string  `json:"fecha"`
+			Valor float64 `json:"valor"`
+		} `json:"compra"`
+		Venta struct {
+			Fecha string  `json:"fecha"`
+			Valor float64 `json:"valor"`
+		} `json:"venta"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return ExchangeRate{}, err
 	}
+	if body.Compra.Valor <= 0 || body.Venta.Valor <= 0 {
+		return ExchangeRate{}, errInvalidRate
+	}
 
 	return ExchangeRate{
-		Buy:    body.Dolar.Compra.Valor,
-		Sell:   body.Dolar.Venta.Valor,
-		Date:   body.Dolar.Venta.Fecha,
+		Buy:    body.Compra.Valor,
+		Sell:   body.Venta.Valor,
+		Date:   body.Venta.Fecha,
 		Source: "Ministerio de Hacienda CR",
 	}, nil
 }
