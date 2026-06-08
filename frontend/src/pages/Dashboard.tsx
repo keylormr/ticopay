@@ -1,60 +1,37 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { ApiError, api, type Transaction } from '../api'
+import { useState } from 'react'
 import { useAuth } from '../auth'
 import { Brand } from '../components/Brand'
-import { formatCents, formatDate } from '../format'
+import { formatMoney } from '../format'
+import { Home } from '../sections/Home'
+import { SendMoney } from '../sections/SendMoney'
+import { Cobros } from '../sections/Cobros'
+import { Vaquitas } from '../sections/Vaquitas'
+import { Account } from '../sections/Account'
+
+type Tab = 'inicio' | 'enviar' | 'cobrar' | 'vaquitas' | 'cuenta'
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'inicio', label: 'Inicio' },
+  { id: 'enviar', label: 'Enviar' },
+  { id: 'cobrar', label: 'Cobrar' },
+  { id: 'vaquitas', label: 'Vaquitas' },
+  { id: 'cuenta', label: 'Cuenta' },
+]
 
 export function Dashboard() {
-  const { user, account, logout, refresh } = useAuth()
-  const [txs, setTxs] = useState<Transaction[]>([])
-  const [loadingTxs, setLoadingTxs] = useState(true)
+  const { user, accounts, logout, refresh } = useAuth()
+  const [tab, setTab] = useState<Tab>('inicio')
+  const [version, setVersion] = useState(0)
 
-  const [toEmail, setToEmail] = useState('')
-  const [amount, setAmount] = useState('')
-  const [description, setDescription] = useState('')
-  const [error, setError] = useState('')
-  const [ok, setOk] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function loadTxs() {
-    setLoadingTxs(true)
-    try {
-      const res = await api.transactions()
-      setTxs(res.transactions)
-    } catch {
-      /* ignore — keep previous list */
-    } finally {
-      setLoadingTxs(false)
-    }
+  // Called by any action that moves money — refreshes balances and signals
+  // sections to refetch their lists.
+  async function reload() {
+    await refresh()
+    setVersion((v) => v + 1)
   }
 
-  useEffect(() => {
-    loadTxs()
-  }, [])
-
-  async function onSend(e: FormEvent) {
-    e.preventDefault()
-    setError('')
-    setOk('')
-    const value = Number(amount)
-    if (!Number.isFinite(value) || value <= 0) {
-      setError('Ingresá un monto válido')
-      return
-    }
-    setBusy(true)
-    try {
-      await api.send({ toEmail, amount: value, description })
-      setOk(`Enviaste ${formatCents(Math.round(value * 100))} a ${toEmail}`)
-      setToEmail('')
-      setAmount('')
-      setDescription('')
-      await Promise.all([refresh(), loadTxs()])
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo enviar el pago')
-    } finally {
-      setBusy(false)
-    }
-  }
+  const crc = accounts.find((a) => a.currency === 'CRC')
+  const usd = accounts.find((a) => a.currency === 'USD')
 
   return (
     <>
@@ -62,6 +39,7 @@ export function Dashboard() {
         <Brand />
         <div className="who">
           <span>{user?.fullName}</span>
+          {user?.kycStatus === 'verified' && <span className="badge-verified">✓ Verificado</span>}
           <button className="btn-ghost" onClick={logout}>
             Salir
           </button>
@@ -69,81 +47,35 @@ export function Dashboard() {
       </header>
 
       <main className="container">
-        <section className="balance-card">
-          <div className="label">Saldo disponible</div>
-          <div className="amount">{account ? formatCents(account.balanceCents) : '—'}</div>
+        <section className="balance-row">
+          <div className="balance-card">
+            <div className="label">Saldo en colones</div>
+            <div className="amount">{crc ? formatMoney(crc.balanceCents, 'CRC') : '—'}</div>
+          </div>
+          <div className="balance-card usd">
+            <div className="label">Saldo en dólares</div>
+            <div className="amount">{usd ? formatMoney(usd.balanceCents, 'USD') : '—'}</div>
+          </div>
         </section>
 
-        <div className="grid">
-          <section className="panel">
-            <h2>Enviar dinero</h2>
-            <p className="sub">Transferí al instante a otro usuario por su correo.</p>
-            <form onSubmit={onSend}>
-              <label htmlFor="toEmail">Para (correo)</label>
-              <input
-                id="toEmail"
-                type="email"
-                value={toEmail}
-                onChange={(e) => setToEmail(e.target.value)}
-                placeholder="carlos@ticopay.cr"
-                required
-              />
-              <label htmlFor="amount">Monto (₡)</label>
-              <input
-                id="amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="5000"
-                required
-              />
-              <label htmlFor="description">Detalle (opcional)</label>
-              <input
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Almuerzo 🌮"
-              />
-              {error && <div className="error">{error}</div>}
-              {ok && <div className="ok">{ok}</div>}
-              <button className="btn btn-red" type="submit" disabled={busy}>
-                {busy ? 'Enviando…' : 'Enviar pago'}
-              </button>
-            </form>
-          </section>
+        <nav className="tabs">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              className={`tab ${tab === t.id ? 'tab-active' : ''}`}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
 
-          <section className="panel">
-            <h2>Movimientos</h2>
-            <p className="sub">Tus últimas transacciones.</p>
-            {loadingTxs ? (
-              <div className="empty">Cargando…</div>
-            ) : txs.length === 0 ? (
-              <div className="empty">Aún no tenés movimientos. ¡Enviá tu primer pago!</div>
-            ) : (
-              <ul className="tx-list">
-                {txs.map((t) => (
-                  <li className="tx-item" key={t.id}>
-                    <div className={`tx-icon ${t.direction === 'in' ? 'tx-in' : 'tx-out'}`}>
-                      {t.direction === 'in' ? '↓' : '↑'}
-                    </div>
-                    <div className="tx-meta">
-                      <div className="name">{t.counterpart}</div>
-                      <div className="desc">
-                        {t.description || (t.direction === 'in' ? 'Pago recibido' : 'Pago enviado')} ·{' '}
-                        {formatDate(t.createdAt)}
-                      </div>
-                    </div>
-                    <div className={`tx-amount ${t.direction}`}>
-                      {t.direction === 'in' ? '+' : '−'}
-                      {formatCents(t.amountCents)}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+        <div className="tab-body">
+          {tab === 'inicio' && <Home version={version} reload={reload} />}
+          {tab === 'enviar' && <SendMoney reload={reload} />}
+          {tab === 'cobrar' && <Cobros version={version} reload={reload} />}
+          {tab === 'vaquitas' && <Vaquitas version={version} reload={reload} />}
+          {tab === 'cuenta' && <Account />}
         </div>
       </main>
     </>

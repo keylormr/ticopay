@@ -12,57 +12,56 @@ import (
 	"ticopay/backend/internal/models"
 )
 
-func (a *App) fetchAccount(ctx context.Context, uid string) (models.Account, error) {
-	var acc models.Account
+func toCents(amount float64) int64 {
+	return int64(math.Round(amount * 100))
+}
+
+func (a *App) fetchUser(ctx context.Context, uid string) (models.User, error) {
+	var u models.User
 	err := a.pool.QueryRow(ctx,
-		`SELECT id, currency, balance_cents FROM accounts WHERE user_id = $1 AND currency = 'CRC'`,
-		uid,
-	).Scan(&acc.ID, &acc.Currency, &acc.BalanceCents)
-	return acc, err
+		`SELECT id, email, COALESCE(phone,''), full_name, kyc_status,
+		        COALESCE(id_type,''), COALESCE(id_number,''), created_at
+		 FROM users WHERE id = $1`, uid,
+	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.CreatedAt)
+	return u, err
 }
 
 func (a *App) handleMe(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	uid := userID(r)
 
-	var u models.User
-	err := a.pool.QueryRow(ctx,
-		`SELECT id, email, COALESCE(phone,''), full_name, created_at FROM users WHERE id = $1`, uid,
-	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.CreatedAt)
+	u, err := a.fetchUser(ctx, uid)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "user not found")
 		return
 	}
-
-	acc, err := a.fetchAccount(ctx, uid)
+	accounts, err := a.fetchAccounts(ctx, uid)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not load account")
+		writeError(w, http.StatusInternalServerError, "could not load accounts")
 		return
 	}
-
-	writeJSON(w, http.StatusOK, map[string]any{"user": u, "account": acc})
+	writeJSON(w, http.StatusOK, map[string]any{"user": u, "accounts": accounts})
 }
 
 func (a *App) handleListTransactions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	acc, err := a.fetchAccount(ctx, userID(r))
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not load account")
-		return
-	}
+	uid := userID(r)
 
 	rows, err := a.pool.Query(ctx, `
 		SELECT t.id,
-		       CASE WHEN t.from_account_id = $1 THEN 'out' ELSE 'in' END AS direction,
-		       COALESCE(cp.full_name, 'Tico Pay') AS counterpart,
-		       t.amount_cents, t.currency, t.description, t.status, t.created_at
+		       CASE WHEN fa.user_id = $1 AND ta.user_id = $1 THEN 'self'
+		            WHEN fa.user_id = $1 THEN 'out'
+		            ELSE 'in' END AS direction,
+		       COALESCE(CASE WHEN fa.user_id = $1 THEN tu.full_name ELSE fu.full_name END, 'Tico Pay') AS counterpart,
+		       t.amount_cents, t.currency, t.description, t.status, t.kind, t.created_at
 		FROM transactions t
-		LEFT JOIN accounts ca
-		       ON ca.id = CASE WHEN t.from_account_id = $1 THEN t.to_account_id ELSE t.from_account_id END
-		LEFT JOIN users cp ON cp.id = ca.user_id
-		WHERE t.from_account_id = $1 OR t.to_account_id = $1
+		LEFT JOIN accounts fa ON fa.id = t.from_account_id
+		LEFT JOIN accounts ta ON ta.id = t.to_account_id
+		LEFT JOIN users fu ON fu.id = fa.user_id
+		LEFT JOIN users tu ON tu.id = ta.user_id
+		WHERE fa.user_id = $1 OR ta.user_id = $1
 		ORDER BY t.created_at DESC
-		LIMIT 100`, acc.ID)
+		LIMIT 100`, uid)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not load transactions")
 		return
@@ -73,7 +72,7 @@ func (a *App) handleListTransactions(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var t models.Transaction
 		if err := rows.Scan(&t.ID, &t.Direction, &t.Counterpart, &t.AmountCents,
-			&t.Currency, &t.Description, &t.Status, &t.CreatedAt); err != nil {
+			&t.Currency, &t.Description, &t.Status, &t.Kind, &t.CreatedAt); err != nil {
 			writeError(w, http.StatusInternalServerError, "could not read transactions")
 			return
 		}
@@ -84,27 +83,84 @@ func (a *App) handleListTransactions(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleSendMoney(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ToEmail     string  `json:"toEmail"`
-		Amount      float64 `json:"amount"` // in colones
+		To          string  `json:"to"`       // email OR phone
+		ToEmail     string  `json:"toEmail"`  // legacy alias
+		Amount      float64 `json:"amount"`   // major units (colones / dollars)
+		Currency    string  `json:"currency"` // CRC | USD
 		Description string  `json:"description"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-
-	req.ToEmail = strings.ToLower(strings.TrimSpace(req.ToEmail))
-	amountCents := int64(math.Round(req.Amount * 100))
+	to := req.To
+	if to == "" {
+		to = req.ToEmail
+	}
+	to = strings.TrimSpace(to)
+	currency := req.Currency
+	if currency == "" {
+		currency = "CRC"
+	}
+	if !validCurrency(currency) {
+		writeError(w, http.StatusBadRequest, "unsupported currency")
+		return
+	}
+	amountCents := toCents(req.Amount)
 	if amountCents <= 0 {
 		writeError(w, http.StatusBadRequest, "amount must be greater than zero")
 		return
 	}
-	if req.ToEmail == "" {
-		writeError(w, http.StatusBadRequest, "recipient email is required")
+	if to == "" {
+		writeError(w, http.StatusBadRequest, "recipient (email or phone) is required")
+		return
+	}
+
+	txID, newBalance, err := a.transfer(r.Context(), userID(r), to, currency, amountCents,
+		strings.TrimSpace(req.Description), "transfer")
+	if err != nil {
+		writeTransferError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"id": txID, "amountCents": amountCents, "currency": currency, "newBalance": newBalance,
+	})
+}
+
+func (a *App) handleConvert(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		From   string  `json:"from"`
+		To     string  `json:"to"`
+		Amount float64 `json:"amount"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if !validCurrency(req.From) || !validCurrency(req.To) || req.From == req.To {
+		writeError(w, http.StatusBadRequest, "convert between CRC and USD")
+		return
+	}
+	fromCents := toCents(req.Amount)
+	if fromCents <= 0 {
+		writeError(w, http.StatusBadRequest, "amount must be greater than zero")
+		return
+	}
+
+	rate := a.getExchangeRate(r.Context())
+	var toCentsVal int64
+	if req.From == "CRC" { // CRC -> USD, buy dollars at venta
+		toCentsVal = int64(math.Round(float64(fromCents) / rate.Sell))
+	} else { // USD -> CRC, sell dollars at compra
+		toCentsVal = int64(math.Round(float64(fromCents) * rate.Buy))
+	}
+	if toCentsVal <= 0 {
+		writeError(w, http.StatusBadRequest, "amount too small to convert")
 		return
 	}
 
 	ctx := r.Context()
+	uid := userID(r)
 	tx, err := a.pool.Begin(ctx)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "database error")
@@ -112,70 +168,196 @@ func (a *App) handleSendMoney(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 
-	// Sender account (lock the row to serialize concurrent transfers).
-	var fromID string
-	var fromBalance int64
-	if err := tx.QueryRow(ctx,
-		`SELECT id, balance_cents FROM accounts WHERE user_id = $1 AND currency = 'CRC' FOR UPDATE`,
-		userID(r),
-	).Scan(&fromID, &fromBalance); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not load your account")
-		return
-	}
-
-	// Recipient account by email.
-	var toID, toUserID string
-	err = tx.QueryRow(ctx,
-		`SELECT acc.id, u.id
-		 FROM users u JOIN accounts acc ON acc.user_id = u.id AND acc.currency = 'CRC'
-		 WHERE u.email = $1`, req.ToEmail,
-	).Scan(&toID, &toUserID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "recipient not found")
-		return
-	}
+	// Lock both of the user's accounts.
+	rows, err := tx.Query(ctx,
+		`SELECT id, currency, balance_cents FROM accounts
+		 WHERE user_id = $1 AND currency IN ($2, $3) ORDER BY currency FOR UPDATE`,
+		uid, req.From, req.To)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not load recipient")
+		writeError(w, http.StatusInternalServerError, "could not load accounts")
 		return
 	}
-	if toUserID == userID(r) {
-		writeError(w, http.StatusBadRequest, "you cannot send money to yourself")
+	accByCur := map[string]struct {
+		id  string
+		bal int64
+	}{}
+	for rows.Next() {
+		var id, cur string
+		var bal int64
+		if err := rows.Scan(&id, &cur, &bal); err != nil {
+			rows.Close()
+			writeError(w, http.StatusInternalServerError, "could not read accounts")
+			return
+		}
+		accByCur[cur] = struct {
+			id  string
+			bal int64
+		}{id, bal}
+	}
+	rows.Close()
+
+	from, okF := accByCur[req.From]
+	dst, okT := accByCur[req.To]
+	if !okF || !okT {
+		writeError(w, http.StatusInternalServerError, "missing account for currency")
 		return
 	}
-	if fromBalance < amountCents {
+	if from.bal < fromCents {
 		writeError(w, http.StatusBadRequest, "insufficient balance")
 		return
 	}
 
-	if _, err := tx.Exec(ctx,
-		`UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, amountCents, fromID); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, fromCents, from.id); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not debit account")
 		return
 	}
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, toCentsVal, dst.id); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not credit account")
+		return
+	}
+	desc := "Conversión " + req.From + " → " + req.To
 	if _, err := tx.Exec(ctx,
-		`UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, amountCents, toID); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not credit recipient")
+		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
+		 VALUES ($1, $2, $3, $4, $5, 'completed', 'conversion')`,
+		from.id, dst.id, fromCents, req.From, desc); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not record conversion")
 		return
 	}
-
-	var txID string
-	if err := tx.QueryRow(ctx,
-		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status)
-		 VALUES ($1, $2, $3, 'CRC', $4, 'completed') RETURNING id`,
-		fromID, toID, amountCents, strings.TrimSpace(req.Description),
-	).Scan(&txID); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not record transaction")
-		return
-	}
-
 	if err := tx.Commit(ctx); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not complete transfer")
+		writeError(w, http.StatusInternalServerError, "could not complete conversion")
 		return
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"id":          txID,
-		"amountCents": amountCents,
-		"newBalance":  fromBalance - amountCents,
+		"fromCents": fromCents, "toCents": toCentsVal, "rate": rate,
 	})
+}
+
+// --- shared transfer logic (used by send, request-pay, pool-contribute) ---
+
+var (
+	errSelfTransfer  = errors.New("self transfer")
+	errNoRecipient   = errors.New("recipient not found")
+	errInsufficient  = errors.New("insufficient balance")
+	errNoSenderAcct  = errors.New("sender account missing")
+	errTransferOther = errors.New("transfer failed")
+)
+
+func writeTransferError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, errNoRecipient):
+		writeError(w, http.StatusNotFound, "recipient not found")
+	case errors.Is(err, errSelfTransfer):
+		writeError(w, http.StatusBadRequest, "you cannot send money to yourself")
+	case errors.Is(err, errInsufficient):
+		writeError(w, http.StatusBadRequest, "insufficient balance")
+	default:
+		writeError(w, http.StatusInternalServerError, "transfer failed")
+	}
+}
+
+// transfer moves money from the sender's account to the recipient identified by
+// email/phone, both in the given currency. Returns the new transaction id and
+// the sender's resulting balance.
+func (a *App) transfer(ctx context.Context, senderID, to, currency string, amountCents int64, description, kind string) (string, int64, error) {
+	tx, err := a.pool.Begin(ctx)
+	if err != nil {
+		return "", 0, errTransferOther
+	}
+	defer tx.Rollback(ctx)
+
+	var fromID string
+	var fromBalance int64
+	err = tx.QueryRow(ctx,
+		`SELECT id, balance_cents FROM accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`,
+		senderID, currency,
+	).Scan(&fromID, &fromBalance)
+	if err != nil {
+		return "", 0, errNoSenderAcct
+	}
+
+	toID, toUserID, _, err := resolveRecipientAccount(ctx, tx, to, currency)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", 0, errNoRecipient
+	}
+	if err != nil {
+		return "", 0, errTransferOther
+	}
+	if toUserID == senderID {
+		return "", 0, errSelfTransfer
+	}
+	if fromBalance < amountCents {
+		return "", 0, errInsufficient
+	}
+
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, amountCents, fromID); err != nil {
+		return "", 0, errTransferOther
+	}
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, amountCents, toID); err != nil {
+		return "", 0, errTransferOther
+	}
+	var txID string
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
+		 VALUES ($1, $2, $3, $4, $5, 'completed', $6) RETURNING id`,
+		fromID, toID, amountCents, currency, description, kind,
+	).Scan(&txID); err != nil {
+		return "", 0, errTransferOther
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", 0, errTransferOther
+	}
+	return txID, fromBalance - amountCents, nil
+}
+
+// transferToUser moves money from sender to a known recipient user id (used by
+// paid requests and pool contributions). Returns the transaction id.
+func (a *App) transferToUser(ctx context.Context, senderID, recipientID, currency string, amountCents int64, description, kind string) (string, error) {
+	if recipientID == senderID {
+		return "", errSelfTransfer
+	}
+	tx, err := a.pool.Begin(ctx)
+	if err != nil {
+		return "", errTransferOther
+	}
+	defer tx.Rollback(ctx)
+
+	var fromID string
+	var fromBalance int64
+	if err := tx.QueryRow(ctx,
+		`SELECT id, balance_cents FROM accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`,
+		senderID, currency,
+	).Scan(&fromID, &fromBalance); err != nil {
+		return "", errNoSenderAcct
+	}
+
+	var toID string
+	if err := tx.QueryRow(ctx,
+		`SELECT id FROM accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`,
+		recipientID, currency,
+	).Scan(&toID); err != nil {
+		return "", errNoRecipient
+	}
+	if fromBalance < amountCents {
+		return "", errInsufficient
+	}
+
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, amountCents, fromID); err != nil {
+		return "", errTransferOther
+	}
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, amountCents, toID); err != nil {
+		return "", errTransferOther
+	}
+	var txID string
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
+		 VALUES ($1, $2, $3, $4, $5, 'completed', $6) RETURNING id`,
+		fromID, toID, amountCents, currency, description, kind,
+	).Scan(&txID); err != nil {
+		return "", errTransferOther
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", errTransferOther
+	}
+	return txID, nil
 }

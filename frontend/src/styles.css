@@ -363,3 +363,232 @@ button {
   place-items: center;
   color: var(--muted);
 }
+
+/* --- selects share input styling --- */
+select {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--ink);
+}
+select:focus {
+  outline: none;
+  border-color: var(--cr-blue);
+  box-shadow: 0 0 0 3px rgba(0, 43, 127, 0.15);
+}
+
+/* --- bi-currency balance header --- */
+.balance-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+@media (max-width: 640px) {
+  .balance-row {
+    grid-template-columns: 1fr;
+  }
+}
+.balance-card .amount {
+  font-size: 2.1rem;
+}
+.balance-card.usd {
+  background: linear-gradient(135deg, #0a3d2f, #062b21);
+}
+.balance-card.usd::after {
+  background: #1f8f6a;
+}
+
+.badge-verified {
+  background: #dcfce7;
+  color: var(--green);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* --- tabs --- */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin: 24px 0 18px;
+  border-bottom: 2px solid var(--line);
+  overflow-x: auto;
+}
+.tab {
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+}
+.tab-active {
+  color: var(--cr-blue);
+  border-bottom-color: var(--cr-red);
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.panel.narrow {
+  max-width: 460px;
+}
+
+/* --- payment request / list rows --- */
+.req-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.req-row:last-child {
+  border-bottom: none;
+}
+.req-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.req-amount {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mini-input {
+  width: 92px;
+  padding: 7px 9px;
+  font-size: 0.9rem;
+}
+.btn-pay {
+  background: var(--cr-blue);
+  color: var(--white);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.btn-pay:hover {
+  background: var(--cr-blue-700);
+}
+.btn-pay:disabled {
+  opacity: 0.6;
+}
+.pill {
+  font-size: 0.74rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.pill-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+.pill-paid {
+  background: #dcfce7;
+  color: var(--green);
+}
+.pill-cancelled {
+  background: #fee2e2;
+  color: var(--cr-red-600);
+}
+
+/* --- vaquitas / pools --- */
+.pool-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.pool-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pool-raised {
+  font-weight: 800;
+  color: var(--cr-blue);
+  white-space: nowrap;
+}
+.bar {
+  height: 10px;
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 12px 0 6px;
+}
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--cr-blue), var(--cr-red));
+  transition: width 0.4s ease;
+}
+.bar-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.pool-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* --- share card (QR + WhatsApp) --- */
+.share-card {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  text-align: center;
+}
+.qr-box {
+  display: inline-block;
+  padding: 12px;
+  background: var(--white);
+  border-radius: 12px;
+}
+.share-url {
+  font-size: 0.8rem;
+  color: var(--muted);
+  word-break: break-all;
+  margin: 10px 0;
+}
+.share-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.btn-wa {
+  width: auto;
+  margin: 0;
+  padding: 10px 16px;
+  background: #25d366;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn-wa:hover {
+  background: #1ebe5b;
+}
+
+.pay-amount {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--cr-blue);
+  margin: 14px 0;
+}
+
+.tx-self {
+  background: #e0e7ff;
+  color: var(--cr-blue);
+}

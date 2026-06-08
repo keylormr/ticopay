@@ -5,7 +5,7 @@ WORKDIR /src
 # -mod=mod lets `go build` populate go.sum on first build (no committed go.sum yet).
 ENV CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod
 
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .

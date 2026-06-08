@@ -1,24 +1,25 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { api, tokens, type Account, type User } from './api'
+import { api, tokens, type Account, type Currency, type User } from './api'
 
 interface AuthState {
   user: User | null
-  account: Account | null
+  accounts: Account[]
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (input: { email: string; password: string; fullName: string; phone?: string }) => Promise<void>
   logout: () => void
   refresh: () => Promise<void>
+  setUser: (u: User) => void
+  accountFor: (currency: Currency) => Account | undefined
 }
 
 const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [account, setAccount] = useState<Account | null>(null)
+  const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Restore session on first load if we have a stored token.
   useEffect(() => {
     if (!tokens.access) {
       setLoading(false)
@@ -26,9 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     api
       .me()
-      .then(({ user, account }) => {
+      .then(({ user, accounts }) => {
         setUser(user)
-        setAccount(account)
+        setAccounts(accounts)
       })
       .catch(() => tokens.clear())
       .finally(() => setLoading(false))
@@ -38,31 +39,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.login(email, password)
     tokens.set(res.accessToken, res.refreshToken)
     setUser(res.user)
-    setAccount(res.account)
+    setAccounts(res.accounts)
   }
 
   async function register(input: { email: string; password: string; fullName: string; phone?: string }) {
     const res = await api.register(input)
     tokens.set(res.accessToken, res.refreshToken)
     setUser(res.user)
-    setAccount(res.account)
+    setAccounts(res.accounts)
   }
 
   function logout() {
     tokens.clear()
     setUser(null)
-    setAccount(null)
+    setAccounts([])
   }
 
   async function refresh() {
-    const { user, account } = await api.me()
+    const { user, accounts } = await api.me()
     setUser(user)
-    setAccount(account)
+    setAccounts(accounts)
   }
 
   const value = useMemo<AuthState>(
-    () => ({ user, account, loading, login, register, logout, refresh }),
-    [user, account, loading],
+    () => ({
+      user,
+      accounts,
+      loading,
+      login,
+      register,
+      logout,
+      refresh,
+      setUser,
+      accountFor: (currency) => accounts.find((a) => a.currency === currency),
+    }),
+    [user, accounts, loading],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

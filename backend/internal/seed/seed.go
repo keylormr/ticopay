@@ -10,20 +10,21 @@ import (
 )
 
 type demoUser struct {
-	email    string
-	fullName string
-	phone    string
-	balance  int64 // céntimos
+	email      string
+	fullName   string
+	phone      string
+	balanceCRC int64 // céntimos
+	balanceUSD int64 // cents
 }
 
 var demoUsers = []demoUser{
-	{"maria@ticopay.cr", "María Jiménez", "8888-0001", 25000000},  // ₡250 000,00
-	{"carlos@ticopay.cr", "Carlos Rodríguez", "8888-0002", 7500000}, // ₡75 000,00
+	{"maria@ticopay.cr", "María Jiménez", "8888-0001", 25000000, 50000},   // ₡250 000 · $500
+	{"carlos@ticopay.cr", "Carlos Rodríguez", "8888-0002", 7500000, 20000}, // ₡75 000 · $200
 }
 
 const demoPassword = "password123"
 
-// Run seeds demo users (idempotent: skips if any user already exists).
+// Run seeds demo data (idempotent: skips if any user already exists).
 func Run(ctx context.Context, pool *pgxpool.Pool) error {
 	var count int
 	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
@@ -38,20 +39,39 @@ func Run(ctx context.Context, pool *pgxpool.Pool) error {
 		return err
 	}
 
+	ids := map[string]string{}
 	for _, du := range demoUsers {
 		var userID string
 		if err := pool.QueryRow(ctx,
-			`INSERT INTO users (email, phone, full_name, password_hash)
-			 VALUES ($1, $2, $3, $4) RETURNING id`,
+			`INSERT INTO users (email, phone, full_name, password_hash, kyc_status)
+			 VALUES ($1, $2, $3, $4, 'verified') RETURNING id`,
 			du.email, du.phone, du.fullName, hash,
 		).Scan(&userID); err != nil {
 			return fmt.Errorf("seed user %s: %w", du.email, err)
 		}
+		ids[du.email] = userID
 		if _, err := pool.Exec(ctx,
-			`INSERT INTO accounts (user_id, currency, balance_cents) VALUES ($1, 'CRC', $2)`,
-			userID, du.balance,
+			`INSERT INTO accounts (user_id, currency, balance_cents)
+			 VALUES ($1, 'CRC', $2), ($1, 'USD', $3)`,
+			userID, du.balanceCRC, du.balanceUSD,
 		); err != nil {
-			return fmt.Errorf("seed account %s: %w", du.email, err)
+			return fmt.Errorf("seed accounts %s: %w", du.email, err)
+		}
+	}
+
+	// A demo vaquita and a pending cobro so the new features aren't empty.
+	if maria, ok := ids["maria@ticopay.cr"]; ok {
+		_, _ = pool.Exec(ctx,
+			`INSERT INTO pools (owner_id, name, description, goal_cents, currency)
+			 VALUES ($1, 'Cumpleaños de la oficina 🎂', 'Juntemos para el queque y el regalo', 5000000, 'CRC')`,
+			maria)
+	}
+	if maria, ok := ids["maria@ticopay.cr"]; ok {
+		if carlos, ok2 := ids["carlos@ticopay.cr"]; ok2 {
+			_, _ = pool.Exec(ctx,
+				`INSERT INTO payment_requests (requester_id, target_user_id, amount_cents, currency, description)
+				 VALUES ($1, $2, 1200000, 'CRC', 'Almuerzo del viernes 🌮')`,
+				carlos, maria)
 		}
 	}
 

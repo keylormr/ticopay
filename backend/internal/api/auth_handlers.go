@@ -13,13 +13,13 @@ import (
 )
 
 type authResponse struct {
-	AccessToken  string         `json:"accessToken"`
-	RefreshToken string         `json:"refreshToken"`
-	User         models.User    `json:"user"`
-	Account      models.Account `json:"account"`
+	AccessToken  string           `json:"accessToken"`
+	RefreshToken string           `json:"refreshToken"`
+	User         models.User      `json:"user"`
+	Accounts     []models.Account `json:"accounts"`
 }
 
-func (a *App) issueAuthResponse(w http.ResponseWriter, status int, u models.User, acc models.Account) {
+func (a *App) issueAuthResponse(w http.ResponseWriter, status int, u models.User, accounts []models.Account) {
 	access, refresh, err := a.jwt.Issue(u.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not issue tokens")
@@ -29,7 +29,7 @@ func (a *App) issueAuthResponse(w http.ResponseWriter, status int, u models.User
 		AccessToken:  access,
 		RefreshToken: refresh,
 		User:         u,
-		Account:      acc,
+		Accounts:     accounts,
 	})
 }
 
@@ -47,6 +47,7 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	req.FullName = strings.TrimSpace(req.FullName)
+	req.Phone = strings.TrimSpace(req.Phone)
 	if req.Email == "" || !strings.Contains(req.Email, "@") {
 		writeError(w, http.StatusBadRequest, "a valid email is required")
 		return
@@ -78,29 +79,25 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 	err = tx.QueryRow(ctx,
 		`INSERT INTO users (email, phone, full_name, password_hash)
 		 VALUES ($1, NULLIF($2,''), $3, $4)
-		 RETURNING id, email, COALESCE(phone,''), full_name, created_at`,
+		 RETURNING id, email, COALESCE(phone,''), full_name, kyc_status, COALESCE(id_type,''), COALESCE(id_number,''), created_at`,
 		req.Email, req.Phone, req.FullName, hash,
-	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.CreatedAt)
+	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.CreatedAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			writeError(w, http.StatusConflict, "email already registered")
+			writeError(w, http.StatusConflict, "email or phone already registered")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "could not create user")
 		return
 	}
 
-	var acc models.Account
-	acc.Currency = "CRC"
-	err = tx.QueryRow(ctx,
+	// Bi-currency: every user gets a CRC and a USD account.
+	if _, err := tx.Exec(ctx,
 		`INSERT INTO accounts (user_id, currency, balance_cents)
-		 VALUES ($1, 'CRC', 0)
-		 RETURNING id, currency, balance_cents`,
-		u.ID,
-	).Scan(&acc.ID, &acc.Currency, &acc.BalanceCents)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not create account")
+		 VALUES ($1, 'CRC', 0), ($1, 'USD', 0)`, u.ID,
+	); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not create accounts")
 		return
 	}
 
@@ -109,7 +106,12 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.issueAuthResponse(w, http.StatusCreated, u, acc)
+	accounts, err := a.fetchAccounts(ctx, u.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not load accounts")
+		return
+	}
+	a.issueAuthResponse(w, http.StatusCreated, u, accounts)
 }
 
 func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -129,9 +131,10 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 		hash string
 	)
 	err := a.pool.QueryRow(ctx,
-		`SELECT id, email, COALESCE(phone,''), full_name, created_at, password_hash
+		`SELECT id, email, COALESCE(phone,''), full_name, kyc_status,
+		        COALESCE(id_type,''), COALESCE(id_number,''), created_at, password_hash
 		 FROM users WHERE email = $1`, req.Email,
-	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.CreatedAt, &hash)
+	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.CreatedAt, &hash)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !auth.CheckPassword(hash, req.Password)) {
 		writeError(w, http.StatusUnauthorized, "invalid email or password")
 		return
@@ -141,12 +144,12 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acc, err := a.fetchAccount(ctx, u.ID)
+	accounts, err := a.fetchAccounts(ctx, u.ID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not load account")
+		writeError(w, http.StatusInternalServerError, "could not load accounts")
 		return
 	}
-	a.issueAuthResponse(w, http.StatusOK, u, acc)
+	a.issueAuthResponse(w, http.StatusOK, u, accounts)
 }
 
 func (a *App) handleRefresh(w http.ResponseWriter, r *http.Request) {

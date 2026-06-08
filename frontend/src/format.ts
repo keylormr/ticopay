@@ -1,12 +1,18 @@
-const crc = new Intl.NumberFormat('es-CR', {
-  style: 'currency',
-  currency: 'CRC',
-  minimumFractionDigits: 2,
-})
+import type { Currency } from './api'
 
-/** Format integer céntimos as Costa Rican colones, e.g. 25000000 -> "₡250 000,00". */
+const formatters: Record<Currency, Intl.NumberFormat> = {
+  CRC: new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', minimumFractionDigits: 2 }),
+  USD: new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }),
+}
+
+/** Format integer minor units (céntimos / cents) in the given currency. */
+export function formatMoney(cents: number, currency: Currency = 'CRC'): string {
+  return (formatters[currency] ?? formatters.CRC).format(cents / 100)
+}
+
+/** Backwards-compatible CRC helper. */
 export function formatCents(cents: number): string {
-  return crc.format(cents / 100)
+  return formatMoney(cents, 'CRC')
 }
 
 export function formatDate(iso: string): string {
@@ -17,3 +23,11 @@ export function formatDate(iso: string): string {
     minute: '2-digit',
   })
 }
+
+/** Pretty-print a Costa Rican 8-digit phone as 8888-0000. */
+export function formatPhone(raw: string): string {
+  const d = raw.replace(/\D/g, '')
+  return d.length === 8 ? `${d.slice(0, 4)}-${d.slice(4)}` : raw
+}
+
+export const symbol: Record<Currency, string> = { CRC: '₡', USD: '$' }

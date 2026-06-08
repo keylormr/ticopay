@@ -49,11 +49,27 @@ func (a *App) Router() http.Handler {
 		r.Post("/auth/login", a.handleLogin)
 		r.Post("/auth/refresh", a.handleRefresh)
 
+		// Public: USD/CRC reference rate (handy on the landing screen too).
+		r.Get("/exchange-rate", a.handleExchangeRate)
+
 		r.Group(func(r chi.Router) {
 			r.Use(a.requireAuth)
+
 			r.Get("/me", a.handleMe)
 			r.Get("/transactions", a.handleListTransactions)
 			r.Post("/transactions", a.handleSendMoney)
+			r.Post("/convert", a.handleConvert)
+			r.Post("/kyc", a.handleSubmitKYC)
+
+			r.Post("/requests", a.handleCreateRequest)
+			r.Get("/requests", a.handleListRequests)
+			r.Get("/requests/{id}", a.handleGetRequest)
+			r.Post("/requests/{id}/pay", a.handlePayRequest)
+
+			r.Post("/pools", a.handleCreatePool)
+			r.Get("/pools", a.handleListPools)
+			r.Get("/pools/{id}", a.handleGetPool)
+			r.Post("/pools/{id}/contribute", a.handleContributePool)
 		})
 	})
 
