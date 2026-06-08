@@ -1,0 +1,365 @@
+:root {
+  /* Bandera de Costa Rica */
+  --cr-blue: #002b7f;
+  --cr-blue-700: #001f5c;
+  --cr-red: #ce1126;
+  --cr-red-600: #b00f20;
+  --white: #ffffff;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --bg: #f1f5f9;
+  --line: #e2e8f0;
+  --green: #15803d;
+  --shadow: 0 10px 30px rgba(2, 43, 127, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--cr-blue);
+}
+
+/* --- Brand --- */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 1.4rem;
+  letter-spacing: -0.02em;
+}
+.brand .flag {
+  width: 34px;
+  height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(
+    to bottom,
+    var(--cr-blue) 0 20%,
+    var(--white) 20% 33%,
+    var(--cr-red) 33% 67%,
+    var(--white) 67% 80%,
+    var(--cr-blue) 80% 100%
+  );
+}
+.brand span {
+  color: var(--cr-blue);
+}
+.brand span b {
+  color: var(--cr-red);
+}
+
+/* --- Auth screens --- */
+.auth-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(1200px 600px at 50% -10%, rgba(0, 43, 127, 0.12), transparent),
+    var(--bg);
+}
+.card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 32px;
+  width: 100%;
+  max-width: 420px;
+}
+.card h1 {
+  margin: 18px 0 4px;
+  font-size: 1.5rem;
+}
+.card .sub {
+  color: var(--muted);
+  margin: 0 0 22px;
+  font-size: 0.95rem;
+}
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 14px 0 6px;
+  color: #334155;
+}
+input,
+textarea {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--cr-blue);
+  box-shadow: 0 0 0 3px rgba(0, 43, 127, 0.15);
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn {
+  width: 100%;
+  margin-top: 22px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--cr-blue);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 1rem;
+  transition: background 0.15s, transform 0.05s;
+}
+.btn:hover {
+  background: var(--cr-blue-700);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-red {
+  background: var(--cr-red);
+}
+.btn-red:hover {
+  background: var(--cr-red-600);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--cr-blue);
+  border: 1px solid var(--line);
+  width: auto;
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+}
+.btn-ghost:hover {
+  background: #f8fafc;
+}
+
+.switch {
+  text-align: center;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.switch button {
+  background: none;
+  border: none;
+  color: var(--cr-blue);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.error {
+  background: #fef2f2;
+  color: var(--cr-red-600);
+  border: 1px solid #fecaca;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  margin-top: 16px;
+}
+.hint {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  margin-top: 18px;
+  line-height: 1.5;
+}
+
+/* --- App shell --- */
+.topbar {
+  background: var(--white);
+  border-bottom: 3px solid var(--cr-red);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.topbar .who {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
+}
+
+.balance-card {
+  background: linear-gradient(135deg, var(--cr-blue), var(--cr-blue-700));
+  color: var(--white);
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.balance-card::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 160px;
+  height: 160px;
+  background: var(--cr-red);
+  opacity: 0.25;
+  border-radius: 50%;
+}
+.balance-card .label {
+  opacity: 0.8;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.balance-card .amount {
+  font-size: 2.6rem;
+  font-weight: 800;
+  margin-top: 6px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 22px;
+  margin-top: 22px;
+}
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px;
+}
+.panel h2 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+}
+.panel .sub {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.tx-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tx-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.tx-item:last-child {
+  border-bottom: none;
+}
+.tx-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.tx-in {
+  background: #dcfce7;
+  color: var(--green);
+}
+.tx-out {
+  background: #fee2e2;
+  color: var(--cr-red);
+}
+.tx-meta {
+  flex: 1;
+  min-width: 0;
+}
+.tx-meta .name {
+  font-weight: 600;
+}
+.tx-meta .desc {
+  color: var(--muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tx-amount {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tx-amount.in {
+  color: var(--green);
+}
+.tx-amount.out {
+  color: var(--ink);
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 28px 0;
+  font-size: 0.9rem;
+}
+
+.ok {
+  background: #f0fdf4;
+  color: var(--green);
+  border: 1px solid #bbf7d0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  margin-top: 16px;
+}
+
+.center {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
