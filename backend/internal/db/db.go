@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -16,6 +17,11 @@ func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	}
 	cfg.MaxConns = 10
 	cfg.MaxConnIdleTime = 5 * time.Minute
+
+	// Neon's pooled endpoint runs PgBouncer in transaction mode, which is
+	// incompatible with cached named prepared statements. QueryExecModeExec
+	// uses unnamed statements, so the same code works on pooled or direct URLs.
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
