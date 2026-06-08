@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, api, type Currency } from '../api'
+import { CurrencySelect } from '../components/CurrencySelect'
+import { metaOf } from '../currencies'
 import { formatMoney } from '../format'
 
 export function SendMoney({ reload }: { reload: () => Promise<void> }) {
@@ -10,6 +12,8 @@ export function SendMoney({ reload }: { reload: () => Promise<void> }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
+
+  const m = metaOf(currency)
 
   async function onSend(e: FormEvent) {
     e.preventDefault()
@@ -23,7 +27,7 @@ export function SendMoney({ reload }: { reload: () => Promise<void> }) {
     setBusy(true)
     try {
       await api.send({ to: to.trim(), amount: value, currency, description })
-      setOk(`Enviaste ${formatMoney(Math.round(value * 100), currency)} a ${to.trim()}`)
+      setOk(`Enviaste ${formatMoney(Math.round(value * 10 ** m.decimals), currency)} a ${to.trim()}`)
       setTo('')
       setAmount('')
       setDescription('')
@@ -38,7 +42,7 @@ export function SendMoney({ reload }: { reload: () => Promise<void> }) {
   return (
     <section className="panel narrow">
       <h2>Enviar dinero</h2>
-      <p className="sub">Al instante, por número de teléfono o correo.</p>
+      <p className="sub">Al instante, por número de teléfono o correo. Fiat o cripto.</p>
       <form onSubmit={onSend}>
         <label htmlFor="to">Para (teléfono o correo)</label>
         <input
@@ -49,19 +53,16 @@ export function SendMoney({ reload }: { reload: () => Promise<void> }) {
           required
         />
         <label htmlFor="currency">Moneda</label>
-        <select id="currency" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
-          <option value="CRC">Colones (₡)</option>
-          <option value="USD">Dólares ($)</option>
-        </select>
-        <label htmlFor="amount">Monto ({currency === 'CRC' ? '₡' : '$'})</label>
+        <CurrencySelect id="currency" value={currency} onChange={setCurrency} />
+        <label htmlFor="amount">Monto ({m.symbol})</label>
         <input
           id="amount"
           type="number"
           min="0"
-          step="0.01"
+          step="any"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          placeholder={currency === 'CRC' ? '5000' : '20'}
+          placeholder={m.type === 'crypto' ? '0.01' : '5000'}
           required
         />
         <label htmlFor="desc">Detalle (opcional)</label>

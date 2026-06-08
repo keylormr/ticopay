@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, api, type Currency, type PaymentRequest } from '../api'
 import { formatMoney } from '../format'
 import { ShareCard } from '../components/ShareCard'
+import { CurrencySelect } from '../components/CurrencySelect'
 
 export function Cobros({ version, reload }: { version: number; reload: () => Promise<void> }) {
   const [to, setTo] = useState('')
@@ -67,16 +68,13 @@ export function Cobros({ version, reload }: { version: number; reload: () => Pro
               placeholder="Dejalo vacío para un cobro abierto"
             />
             <label htmlFor="ccur">Moneda</label>
-            <select id="ccur" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
-              <option value="CRC">Colones (₡)</option>
-              <option value="USD">Dólares ($)</option>
-            </select>
+            <CurrencySelect id="ccur" value={currency} onChange={setCurrency} />
             <label htmlFor="camount">Monto (opcional)</label>
             <input
               id="camount"
               type="number"
               min="0"
-              step="0.01"
+              step="any"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="Vacío = el pagador elige"
@@ -166,10 +164,10 @@ function PayRow({ req, reload }: { req: PaymentRequest; reload: () => Promise<vo
             className="mini-input"
             type="number"
             min="0"
-            step="0.01"
+            step="any"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder={req.currency === 'CRC' ? '₡' : '$'}
+            placeholder={req.currency}
           />
         )}
         <button className="btn-pay" onClick={pay} disabled={busy}>

@@ -49,8 +49,9 @@ func (a *App) Router() http.Handler {
 		r.Post("/auth/login", a.handleLogin)
 		r.Post("/auth/refresh", a.handleRefresh)
 
-		// Public: USD/CRC reference rate (handy on the landing screen too).
+		// Public: USD/CRC reference rate + full fiat/crypto rate table.
 		r.Get("/exchange-rate", a.handleExchangeRate)
+		r.Get("/rates", a.handleRates)
 
 		r.Group(func(r chi.Router) {
 			r.Use(a.requireAuth)

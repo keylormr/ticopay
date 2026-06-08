@@ -1,22 +1,25 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ApiError, api, type Currency, type ExchangeRate, type Transaction } from '../api'
+import { ApiError, api, type Currency, type Rates, type Transaction } from '../api'
+import { CurrencySelect } from '../components/CurrencySelect'
+import { CRYPTO, metaOf } from '../currencies'
 import { formatDate, formatMoney } from '../format'
 
 const ICON: Record<Transaction['direction'], string> = { in: '↓', out: '↑', self: '⇄' }
 
 export function Home({ version, reload }: { version: number; reload: () => Promise<void> }) {
   const [txs, setTxs] = useState<Transaction[]>([])
-  const [rate, setRate] = useState<ExchangeRate | null>(null)
+  const [rates, setRates] = useState<Rates | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const [from, setFrom] = useState<Currency>('CRC')
+  const [from, setFrom] = useState<Currency>('USD')
+  const [to, setTo] = useState<Currency>('CRC')
   const [amount, setAmount] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api.exchangeRate().then(setRate).catch(() => {})
+    api.rates().then(setRates).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -28,12 +31,14 @@ export function Home({ version, reload }: { version: number; reload: () => Promi
       .finally(() => setLoading(false))
   }, [version])
 
-  const to: Currency = from === 'CRC' ? 'USD' : 'CRC'
-
   async function onConvert(e: FormEvent) {
     e.preventDefault()
     setError('')
     setMsg('')
+    if (from === to) {
+      setError('Elegí dos monedas distintas')
+      return
+    }
     const value = Number(amount)
     if (!Number.isFinite(value) || value <= 0) {
       setError('Ingresá un monto válido')
@@ -56,27 +61,28 @@ export function Home({ version, reload }: { version: number; reload: () => Promi
     <div className="grid">
       <div className="col">
         <section className="panel">
-          <h2>Cambio de divisas</h2>
-          <p className="sub">
-            {rate
-              ? `Dólar BCCR · compra ₡${rate.buy.toFixed(2)} · venta ₡${rate.sell.toFixed(2)}`
-              : 'Cargando tipo de cambio…'}
-          </p>
+          <h2>Convertir</h2>
+          <p className="sub">Entre colones, dólares y cripto, al instante.</p>
           <form onSubmit={onConvert}>
-            <label htmlFor="from">Convertir desde</label>
-            <select id="from" value={from} onChange={(e) => setFrom(e.target.value as Currency)}>
-              <option value="CRC">Colones (₡) → Dólares ($)</option>
-              <option value="USD">Dólares ($) → Colones (₡)</option>
-            </select>
-            <label htmlFor="cvtAmount">Monto en {from === 'CRC' ? '₡' : '$'}</label>
+            <div className="cvt-row">
+              <div>
+                <label htmlFor="from">De</label>
+                <CurrencySelect id="from" value={from} onChange={setFrom} />
+              </div>
+              <div>
+                <label htmlFor="to">A</label>
+                <CurrencySelect id="to" value={to} onChange={setTo} />
+              </div>
+            </div>
+            <label htmlFor="cvtAmount">Monto en {metaOf(from).symbol}</label>
             <input
               id="cvtAmount"
               type="number"
               min="0"
-              step="0.01"
+              step="any"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder={from === 'CRC' ? '10000' : '20'}
+              placeholder={metaOf(from).type === 'crypto' ? '0.01' : '10000'}
               required
             />
             {error && <div className="error">{error}</div>}
@@ -85,12 +91,27 @@ export function Home({ version, reload }: { version: number; reload: () => Promi
               {busy ? 'Convirtiendo…' : 'Convertir'}
             </button>
           </form>
+
+          <div className="rates-box">
+            <div className="rate-line">
+              <span>Dólar BCCR</span>
+              <span>{rates?.crc?.sell ? `₡${rates.crc.sell.toFixed(2)}` : '—'}</span>
+            </div>
+            {CRYPTO.map((c) => (
+              <div className="rate-line" key={c.code}>
+                <span>
+                  {c.symbol} {c.code}
+                </span>
+                <span>{rates?.crypto?.[c.code] != null ? `$${rates.crypto[c.code].toLocaleString('en-US')}` : '—'}</span>
+              </div>
+            ))}
+          </div>
         </section>
       </div>
 
       <section className="panel">
         <h2>Movimientos</h2>
-        <p className="sub">Tus últimas transacciones en ambas monedas.</p>
+        <p className="sub">Tus últimas transacciones, en todas las monedas.</p>
         {loading ? (
           <div className="empty">Cargando…</div>
         ) : txs.length === 0 ? (

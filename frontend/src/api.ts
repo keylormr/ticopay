@@ -1,6 +1,13 @@
 const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
-export type Currency = 'CRC' | 'USD'
+export type Currency = 'CRC' | 'USD' | 'BTC' | 'ETH' | 'USDT'
+
+export interface Rates {
+  crc: ExchangeRate
+  crypto: Record<string, number>
+  usdPerUnit: Record<string, number>
+  updatedAt: string
+}
 
 export interface User {
   id: string
@@ -167,6 +174,9 @@ export const api = {
   },
   exchangeRate() {
     return request<ExchangeRate>('/api/exchange-rate')
+  },
+  rates() {
+    return request<Rates>('/api/rates')
   },
 
   // --- KYC ---

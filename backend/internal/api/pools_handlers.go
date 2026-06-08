@@ -36,7 +36,7 @@ func (a *App) handleCreatePool(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "unsupported currency")
 		return
 	}
-	goalCents := toCents(req.GoalAmount)
+	goalCents := toMinor(req.GoalAmount, currency)
 	if goalCents < 0 {
 		goalCents = 0
 	}
@@ -158,8 +158,7 @@ func (a *App) handleContributePool(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	amountCents := toCents(req.Amount)
-	if amountCents <= 0 {
+	if req.Amount <= 0 {
 		writeError(w, http.StatusBadRequest, "amount must be greater than zero")
 		return
 	}
@@ -187,6 +186,7 @@ func (a *App) handleContributePool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	amountCents := toMinor(req.Amount, currency)
 	txID, err := a.transferToUser(ctx, userID(r), ownerID, currency, amountCents, "Aporte a vaquita: "+name, "pool")
 	if err != nil {
 		writeTransferError(w, err)

@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"math"
 	"net/http"
 	"strings"
 
@@ -11,10 +10,6 @@ import (
 
 	"ticopay/backend/internal/models"
 )
-
-func toCents(amount float64) int64 {
-	return int64(math.Round(amount * 100))
-}
 
 func (a *App) fetchUser(ctx context.Context, uid string) (models.User, error) {
 	var u models.User
@@ -106,7 +101,7 @@ func (a *App) handleSendMoney(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "unsupported currency")
 		return
 	}
-	amountCents := toCents(req.Amount)
+	amountCents := toMinor(req.Amount, currency)
 	if amountCents <= 0 {
 		writeError(w, http.StatusBadRequest, "amount must be greater than zero")
 		return
@@ -138,24 +133,26 @@ func (a *App) handleConvert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !validCurrency(req.From) || !validCurrency(req.To) || req.From == req.To {
-		writeError(w, http.StatusBadRequest, "convert between CRC and USD")
+		writeError(w, http.StatusBadRequest, "elegí dos monedas distintas")
 		return
 	}
-	fromCents := toCents(req.Amount)
+	fromCents := toMinor(req.Amount, req.From)
 	if fromCents <= 0 {
 		writeError(w, http.StatusBadRequest, "amount must be greater than zero")
 		return
 	}
 
-	rate := a.getExchangeRate(r.Context())
-	var toCentsVal int64
-	if req.From == "CRC" { // CRC -> USD, buy dollars at venta
-		toCentsVal = int64(math.Round(float64(fromCents) / rate.Sell))
-	} else { // USD -> CRC, sell dollars at compra
-		toCentsVal = int64(math.Round(float64(fromCents) * rate.Buy))
+	// Convert through a common USD reference so any pair (fiat or crypto) works.
+	rates := a.getRates(r.Context())
+	upFrom, upTo := rates.UsdPerUnit[req.From], rates.UsdPerUnit[req.To]
+	if upFrom <= 0 || upTo <= 0 {
+		writeError(w, http.StatusServiceUnavailable, "tipo de cambio no disponible")
+		return
 	}
+	usdValue := majorOf(fromCents, req.From) * upFrom
+	toCentsVal := toMinor(usdValue/upTo, req.To)
 	if toCentsVal <= 0 {
-		writeError(w, http.StatusBadRequest, "amount too small to convert")
+		writeError(w, http.StatusBadRequest, "monto muy pequeño para convertir")
 		return
 	}
 
@@ -229,7 +226,7 @@ func (a *App) handleConvert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"fromCents": fromCents, "toCents": toCentsVal, "rate": rate,
+		"fromCents": fromCents, "toCents": toCentsVal, "rate": rates.Crc,
 	})
 }
 

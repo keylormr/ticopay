@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, api, type PaymentRequest } from '../api'
 import { Brand } from '../components/Brand'
+import { metaOf } from '../currencies'
 import { formatMoney } from '../format'
 
 export function PayRequest() {
@@ -72,12 +73,12 @@ export function PayRequest() {
             </div>
             {req.amountCents == null && (
               <>
-                <label htmlFor="payAmount">Monto a pagar ({req.currency === 'CRC' ? '₡' : '$'})</label>
+                <label htmlFor="payAmount">Monto a pagar ({metaOf(req.currency).symbol})</label>
                 <input
                   id="payAmount"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="any"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required

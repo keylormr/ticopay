@@ -27,10 +27,6 @@ func normalizePhone(s string) string {
 	return d
 }
 
-func validCurrency(c string) bool {
-	return c == "CRC" || c == "USD"
-}
-
 // parseRecipient classifies a "to" value as an email or a phone number.
 func parseRecipient(to string) (email, phoneNorm string) {
 	to = strings.TrimSpace(to)

@@ -15,11 +15,16 @@ type demoUser struct {
 	phone      string
 	balanceCRC int64 // céntimos
 	balanceUSD int64 // cents
+	balanceBTC int64 // satoshis (8 dec)
+	balanceETH int64 // 8 dec
+	balanceUSDT int64 // 2 dec
 }
 
 var demoUsers = []demoUser{
-	{"maria@ticopay.cr", "María Jiménez", "8888-0001", 25000000, 50000},   // ₡250 000 · $500
-	{"carlos@ticopay.cr", "Carlos Rodríguez", "8888-0002", 7500000, 20000}, // ₡75 000 · $200
+	// ₡250 000 · $500 · 0.005 BTC · 0.1 ETH · 100 USDT
+	{"maria@ticopay.cr", "María Jiménez", "8888-0001", 25000000, 50000, 500000, 10000000, 10000},
+	// ₡75 000 · $200
+	{"carlos@ticopay.cr", "Carlos Rodríguez", "8888-0002", 7500000, 20000, 0, 0, 0},
 }
 
 const demoPassword = "password123"
@@ -51,9 +56,9 @@ func Run(ctx context.Context, pool *pgxpool.Pool) error {
 		}
 		ids[du.email] = userID
 		if _, err := pool.Exec(ctx,
-			`INSERT INTO accounts (user_id, currency, balance_cents)
-			 VALUES ($1, 'CRC', $2), ($1, 'USD', $3)`,
-			userID, du.balanceCRC, du.balanceUSD,
+			`INSERT INTO accounts (user_id, currency, balance_cents) VALUES
+			 ($1, 'CRC', $2), ($1, 'USD', $3), ($1, 'BTC', $4), ($1, 'ETH', $5), ($1, 'USDT', $6)`,
+			userID, du.balanceCRC, du.balanceUSD, du.balanceBTC, du.balanceETH, du.balanceUSDT,
 		); err != nil {
 			return fmt.Errorf("seed accounts %s: %w", du.email, err)
 		}

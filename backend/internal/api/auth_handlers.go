@@ -92,10 +92,11 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Bi-currency: every user gets a CRC and a USD account.
+	// Every user gets a wallet for each supported currency (fiat + crypto).
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO accounts (user_id, currency, balance_cents)
-		 VALUES ($1, 'CRC', 0), ($1, 'USD', 0)`, u.ID,
+		 SELECT $1, code, 0 FROM unnest($2::text[]) AS code`,
+		u.ID, allCurrencyCodes(),
 	); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create accounts")
 		return

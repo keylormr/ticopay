@@ -45,7 +45,7 @@ func (a *App) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 
 	var amountCents *int64
 	if req.Amount > 0 {
-		c := toCents(req.Amount)
+		c := toMinor(req.Amount, currency)
 		amountCents = &c
 	}
 
@@ -184,7 +184,7 @@ func (a *App) handlePayRequest(w http.ResponseWriter, r *http.Request) {
 	if amountCents != nil {
 		pay = *amountCents
 	} else {
-		pay = toCents(body.Amount)
+		pay = toMinor(body.Amount, currency)
 	}
 	if pay <= 0 {
 		writeError(w, http.StatusBadRequest, "amount must be greater than zero")

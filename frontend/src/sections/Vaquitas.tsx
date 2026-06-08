@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, api, type Currency, type Pool } from '../api'
 import { formatMoney } from '../format'
 import { ShareCard } from '../components/ShareCard'
+import { CurrencySelect } from '../components/CurrencySelect'
 
 export function Vaquitas({ version, reload }: { version: number; reload: () => Promise<void> }) {
   const [name, setName] = useState('')
@@ -66,12 +67,9 @@ export function Vaquitas({ version, reload }: { version: number; reload: () => P
             <label htmlFor="vname">Nombre</label>
             <input id="vname" value={name} onChange={(e) => setName(e.target.value)} placeholder="Cumpleaños de Ana" required />
             <label htmlFor="vcur">Moneda</label>
-            <select id="vcur" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
-              <option value="CRC">Colones (₡)</option>
-              <option value="USD">Dólares ($)</option>
-            </select>
+            <CurrencySelect id="vcur" value={currency} onChange={setCurrency} />
             <label htmlFor="vgoal">Meta (opcional)</label>
-            <input id="vgoal" type="number" min="0" step="0.01" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="50000" />
+            <input id="vgoal" type="number" min="0" step="any" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="50000" />
             <label htmlFor="vdesc">Descripción</label>
             <input id="vdesc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Para el queque y el regalo" />
             {error && <div className="error">{error}</div>}
@@ -163,10 +161,10 @@ function PoolCard({ pool, reload }: { pool: Pool; reload: () => Promise<void> })
               className="mini-input"
               type="number"
               min="0"
-              step="0.01"
+              step="any"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder={pool.currency === 'CRC' ? '₡ aporte' : '$ aporte'}
+              placeholder={`${pool.currency} aporte`}
             />
             <button className="btn-pay" onClick={contribute} disabled={busy}>
               {busy ? '…' : 'Aportar'}

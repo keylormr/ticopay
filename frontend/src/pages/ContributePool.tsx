@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, api, type Pool, type PoolContribution } from '../api'
 import { Brand } from '../components/Brand'
+import { metaOf } from '../currencies'
 import { formatDate, formatMoney } from '../format'
 
 export function ContributePool() {
@@ -81,12 +82,12 @@ export function ContributePool() {
               <div className="hint" style={{ marginTop: 16 }}>Es tu vaquita: compartí el enlace para recibir aportes.</div>
             ) : (
               <>
-                <label htmlFor="contribAmount">Tu aporte ({pool.currency === 'CRC' ? '₡' : '$'})</label>
+                <label htmlFor="contribAmount">Tu aporte ({metaOf(pool.currency).symbol})</label>
                 <input
                   id="contribAmount"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="any"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                 />
