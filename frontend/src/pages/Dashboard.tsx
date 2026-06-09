@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api, type Account, type Rates } from '../api'
 import { useAuth } from '../auth'
+import { useI18n } from '../i18n'
 import { Brand } from '../components/Brand'
 import { CoinLogo } from '../components/CoinLogo'
+import { LangToggle } from '../components/LangToggle'
 import { CRYPTO, FIAT, metaOf } from '../currencies'
 import { formatMoney } from '../format'
 import { Movimientos } from '../sections/Movimientos'
@@ -15,18 +17,19 @@ import { Account as AccountTab } from '../sections/Account'
 
 type Tab = 'inicio' | 'convertir' | 'enviar' | 'cobrar' | 'servicios' | 'vaquitas' | 'cuenta'
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'inicio', label: 'Inicio', icon: '🏠' },
-  { id: 'convertir', label: 'Convertir', icon: '🔄' },
-  { id: 'enviar', label: 'Enviar', icon: '💸' },
-  { id: 'cobrar', label: 'Cobrar', icon: '🧾' },
-  { id: 'servicios', label: 'Servicios', icon: '💡' },
-  { id: 'vaquitas', label: 'Vaquitas', icon: '🐮' },
-  { id: 'cuenta', label: 'Cuenta', icon: '👤' },
+const TABS: { id: Tab; icon: string }[] = [
+  { id: 'inicio', icon: '🏠' },
+  { id: 'convertir', icon: '🔄' },
+  { id: 'enviar', icon: '💸' },
+  { id: 'cobrar', icon: '🧾' },
+  { id: 'servicios', icon: '💡' },
+  { id: 'vaquitas', icon: '🐮' },
+  { id: 'cuenta', icon: '👤' },
 ]
 
 export function Dashboard() {
   const { user, accounts, logout, refresh } = useAuth()
+  const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('inicio')
   const [version, setVersion] = useState(0)
   const [rates, setRates] = useState<Rates | null>(null)
@@ -62,8 +65,8 @@ export function Dashboard() {
   const nonZeroCrypto = cryptoWallets.filter((a) => a.balanceCents > 0)
   const shownCrypto = showAllCrypto ? cryptoWallets : nonZeroCrypto
 
-  function changeTab(t: Tab) {
-    setTab(t)
+  function changeTab(id: Tab) {
+    setTab(id)
     window.scrollTo({ top: 0 })
   }
 
@@ -73,19 +76,20 @@ export function Dashboard() {
         <Brand />
         <div className="who">
           {totalCrc != null && <span className="total-chip">{formatMoney(Math.round(totalCrc * 100), 'CRC')}</span>}
+          <LangToggle />
           <span className="who-name">{user?.fullName}</span>
           {user?.kycStatus === 'verified' && <span className="badge-verified">✓</span>}
           <button className="btn-ghost" onClick={logout}>
-            Salir
+            {t('btn.signout')}
           </button>
         </div>
       </header>
 
       <nav className="tabs sticky-tabs">
-        {TABS.map((t) => (
-          <button key={t.id} className={`tab ${tab === t.id ? 'tab-active' : ''}`} onClick={() => changeTab(t.id)}>
-            <span className="tab-icon">{t.icon}</span>
-            {t.label}
+        {TABS.map((tb) => (
+          <button key={tb.id} className={`tab ${tab === tb.id ? 'tab-active' : ''}`} onClick={() => changeTab(tb.id)}>
+            <span className="tab-icon">{tb.icon}</span>
+            {t(`tab.${tb.id}`)}
           </button>
         ))}
       </nav>
@@ -94,12 +98,12 @@ export function Dashboard() {
         {tab === 'inicio' && (
           <>
             <section className="hero">
-              <div className="hero-label">Tu dinero en Tico Pay</div>
+              <div className="hero-label">{t('dash.netWorth')}</div>
               <div className="hero-amount">{totalCrc != null ? formatMoney(Math.round(totalCrc * 100), 'CRC') : '—'}</div>
               {totalUsd != null && <div className="hero-sub">≈ {formatMoney(Math.round(totalUsd * 100), 'USD')}</div>}
             </section>
 
-            <h3 className="section-title">Mis monedas</h3>
+            <h3 className="section-title">{t('dash.myMoney')}</h3>
             <div className="fiat-cards">
               {FIAT.map((c) => {
                 const a = accountOf(c.code)
@@ -119,17 +123,17 @@ export function Dashboard() {
             </div>
 
             <div className="section-head">
-              <h3 className="section-title">Mis criptomonedas</h3>
+              <h3 className="section-title">{t('dash.myCrypto')}</h3>
               <button className="link-btn" onClick={() => setShowAllCrypto((s) => !s)}>
-                {showAllCrypto ? 'Ver solo con saldo' : `Ver todas (${cryptoWallets.length})`}
+                {showAllCrypto ? t('dash.seeWithBalance') : t('dash.seeAll', { n: cryptoWallets.length })}
               </button>
             </div>
             <div className="panel coin-panel">
               {shownCrypto.length === 0 ? (
                 <div className="empty">
-                  Todavía no tenés cripto.{' '}
+                  {t('dash.noCrypto')}{' '}
                   <button className="link-btn" onClick={() => setShowAllCrypto(true)}>
-                    Ver monedas disponibles
+                    {t('dash.seeAvailable')}
                   </button>
                 </div>
               ) : (

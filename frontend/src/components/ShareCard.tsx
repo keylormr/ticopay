@@ -1,7 +1,9 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { useState } from 'react'
+import { useI18n } from '../i18n'
 
 export function ShareCard({ url, message }: { url: string; message: string }) {
+  const { t } = useI18n()
   const [copied, setCopied] = useState(false)
   const wa = `https://wa.me/?text=${encodeURIComponent(`${message}\n${url}`)}`
 
@@ -23,10 +25,10 @@ export function ShareCard({ url, message }: { url: string; message: string }) {
       <p className="share-url">{url}</p>
       <div className="share-actions">
         <a className="btn btn-wa" href={wa} target="_blank" rel="noreferrer">
-          Compartir por WhatsApp
+          {t('share.whatsapp')}
         </a>
         <button type="button" className="btn-ghost" onClick={copy}>
-          {copied ? '¡Copiado!' : 'Copiar enlace'}
+          {copied ? t('share.copied') : t('share.copy')}
         </button>
       </div>
     </div>

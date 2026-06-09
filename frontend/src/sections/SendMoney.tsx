@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { ApiError, api, type Currency } from '../api'
+import { useI18n } from '../i18n'
 import { CurrencySelect } from '../components/CurrencySelect'
 import { metaOf } from '../currencies'
 import { formatMoney } from '../format'
 
 export function SendMoney({ reload }: { reload: () => Promise<void> }) {
+  const { t } = useI18n()
   const [to, setTo] = useState('')
   const [currency, setCurrency] = useState<Currency>('CRC')
   const [amount, setAmount] = useState('')
@@ -21,19 +23,19 @@ export function SendMoney({ reload }: { reload: () => Promise<void> }) {
     setOk('')
     const value = Number(amount)
     if (!Number.isFinite(value) || value <= 0) {
-      setError('Ingresá un monto válido')
+      setError(t('send.err.amount'))
       return
     }
     setBusy(true)
     try {
       await api.send({ to: to.trim(), amount: value, currency, description })
-      setOk(`Enviaste ${formatMoney(Math.round(value * 10 ** m.decimals), currency)} a ${to.trim()}`)
+      setOk(t('send.ok', { amount: formatMoney(Math.round(value * 10 ** m.decimals), currency), to: to.trim() }))
       setTo('')
       setAmount('')
       setDescription('')
       await reload()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo enviar el pago')
+      setError(err instanceof ApiError ? err.message : t('send.err.fail'))
     } finally {
       setBusy(false)
     }
@@ -41,20 +43,14 @@ export function SendMoney({ reload }: { reload: () => Promise<void> }) {
 
   return (
     <section className="panel narrow">
-      <h2>Enviar dinero</h2>
-      <p className="sub">Al instante, por número de teléfono o correo. Fiat o cripto.</p>
+      <h2>{t('send.title')}</h2>
+      <p className="sub">{t('send.sub')}</p>
       <form onSubmit={onSend}>
-        <label htmlFor="to">Para (teléfono o correo)</label>
-        <input
-          id="to"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          placeholder="8888-0000 o carlos@ticopay.cr"
-          required
-        />
-        <label htmlFor="currency">Moneda</label>
+        <label htmlFor="to">{t('send.to')}</label>
+        <input id="to" value={to} onChange={(e) => setTo(e.target.value)} placeholder={t('send.to.ph')} required />
+        <label htmlFor="currency">{t('send.currency')}</label>
         <CurrencySelect id="currency" value={currency} onChange={setCurrency} />
-        <label htmlFor="amount">Monto ({m.symbol})</label>
+        <label htmlFor="amount">{t('send.amount', { sym: m.symbol })}</label>
         <input
           id="amount"
           type="number"
@@ -65,12 +61,12 @@ export function SendMoney({ reload }: { reload: () => Promise<void> }) {
           placeholder={m.type === 'crypto' ? '0.01' : '5000'}
           required
         />
-        <label htmlFor="desc">Detalle (opcional)</label>
-        <input id="desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Almuerzo 🌮" />
+        <label htmlFor="desc">{t('send.detail')}</label>
+        <input id="desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('send.detail.ph')} />
         {error && <div className="error">{error}</div>}
         {ok && <div className="ok">{ok}</div>}
         <button className="btn btn-red" type="submit" disabled={busy}>
-          {busy ? 'Enviando…' : 'Enviar pago'}
+          {busy ? t('send.busy') : t('send.btn')}
         </button>
       </form>
     </section>

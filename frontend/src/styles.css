@@ -894,6 +894,31 @@ select:focus {
   margin-bottom: 6px;
 }
 
+/* --- language toggle --- */
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.lang-opt {
+  background: var(--white);
+  border: none;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.lang-opt.lang-active {
+  background: var(--cr-blue);
+  color: #fff;
+}
+
 /* --- service billers grid --- */
 .biller-grid {
   display: grid;

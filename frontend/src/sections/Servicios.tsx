@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, api, type Biller } from '../api'
+import { useI18n } from '../i18n'
 import { formatMoney } from '../format'
 
 export function Servicios({ reload }: { reload: () => Promise<void> }) {
+  const { t } = useI18n()
   const [billers, setBillers] = useState<Biller[]>([])
   const [selected, setSelected] = useState<Biller | null>(null)
   const [reference, setReference] = useState('')
@@ -30,18 +32,18 @@ export function Servicios({ reload }: { reload: () => Promise<void> }) {
     setOk('')
     const value = Number(amount)
     if (!Number.isFinite(value) || value <= 0) {
-      setError('Ingresá un monto válido')
+      setError(t('serv.err.amount'))
       return
     }
     setBusy(true)
     try {
       await api.payService({ billerId: selected.id, reference: reference.trim(), amount: value, currency: 'CRC' })
-      setOk(`Pagaste ${formatMoney(Math.round(value * 100), 'CRC')} a ${selected.name}`)
+      setOk(t('serv.ok', { amount: formatMoney(Math.round(value * 100), 'CRC'), name: selected.name }))
       setReference('')
       setAmount('')
       await reload()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo pagar el servicio')
+      setError(err instanceof ApiError ? err.message : t('serv.err'))
     } finally {
       setBusy(false)
     }
@@ -50,8 +52,8 @@ export function Servicios({ reload }: { reload: () => Promise<void> }) {
   return (
     <div className="grid">
       <section className="panel">
-        <h2>Pagar un servicio</h2>
-        <p className="sub">Recibos, marchamo, recargas y más — directo desde tu billetera en colones.</p>
+        <h2>{t('serv.title')}</h2>
+        <p className="sub">{t('serv.sub')}</p>
         <div className="biller-grid">
           {billers.map((b) => (
             <button
@@ -70,7 +72,7 @@ export function Servicios({ reload }: { reload: () => Promise<void> }) {
 
       <section className="panel narrow">
         {!selected ? (
-          <div className="empty">Elegí un servicio para pagar 👈</div>
+          <div className="empty">{t('serv.pick')}</div>
         ) : (
           <>
             <h2>
@@ -79,14 +81,8 @@ export function Servicios({ reload }: { reload: () => Promise<void> }) {
             <p className="sub">{selected.category}</p>
             <form onSubmit={onPay}>
               <label htmlFor="ref">{selected.refLabel}</label>
-              <input
-                id="ref"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder={selected.refPlaceholder}
-                required
-              />
-              <label htmlFor="samount">Monto (₡)</label>
+              <input id="ref" value={reference} onChange={(e) => setReference(e.target.value)} placeholder={selected.refPlaceholder} required />
+              <label htmlFor="samount">{t('serv.amount')}</label>
               <input
                 id="samount"
                 type="number"
@@ -100,7 +96,7 @@ export function Servicios({ reload }: { reload: () => Promise<void> }) {
               {error && <div className="error">{error}</div>}
               {ok && <div className="ok">{ok}</div>}
               <button className="btn" type="submit" disabled={busy}>
-                {busy ? 'Pagando…' : 'Pagar servicio'}
+                {busy ? t('serv.busy') : t('serv.btn')}
               </button>
             </form>
           </>

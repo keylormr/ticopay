@@ -1,10 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError, api, type Currency, type Rates } from '../api'
+import { useI18n } from '../i18n'
 import { CurrencySelect } from '../components/CurrencySelect'
 import { CRYPTO, metaOf } from '../currencies'
 import { formatMoney } from '../format'
 
 export function Convertir({ reload }: { reload: () => Promise<void> }) {
+  const { t } = useI18n()
   const [rates, setRates] = useState<Rates | null>(null)
   const [from, setFrom] = useState<Currency>('USD')
   const [to, setTo] = useState<Currency>('CRC')
@@ -22,22 +24,22 @@ export function Convertir({ reload }: { reload: () => Promise<void> }) {
     setError('')
     setMsg('')
     if (from === to) {
-      setError('Elegí dos monedas distintas')
+      setError(t('conv.err.diff'))
       return
     }
     const value = Number(amount)
     if (!Number.isFinite(value) || value <= 0) {
-      setError('Ingresá un monto válido')
+      setError(t('conv.err.amount'))
       return
     }
     setBusy(true)
     try {
       const res = await api.convert({ from, to, amount: value })
-      setMsg(`Convertiste ${formatMoney(res.fromCents, from)} → ${formatMoney(res.toCents, to)}`)
+      setMsg(t('conv.ok', { from: formatMoney(res.fromCents, from), to: formatMoney(res.toCents, to) }))
       setAmount('')
       await reload()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo convertir')
+      setError(err instanceof ApiError ? err.message : t('conv.err.fail'))
     } finally {
       setBusy(false)
     }
@@ -45,20 +47,20 @@ export function Convertir({ reload }: { reload: () => Promise<void> }) {
 
   return (
     <section className="panel narrow">
-      <h2>Convertir</h2>
-      <p className="sub">Entre colones, dólares y cripto, al instante.</p>
+      <h2>{t('conv.title')}</h2>
+      <p className="sub">{t('conv.sub')}</p>
       <form onSubmit={onConvert}>
         <div className="cvt-row">
           <div>
-            <label htmlFor="from">De</label>
+            <label htmlFor="from">{t('conv.from')}</label>
             <CurrencySelect id="from" value={from} onChange={setFrom} />
           </div>
           <div>
-            <label htmlFor="to">A</label>
+            <label htmlFor="to">{t('conv.to')}</label>
             <CurrencySelect id="to" value={to} onChange={setTo} />
           </div>
         </div>
-        <label htmlFor="cvtAmount">Monto en {metaOf(from).symbol}</label>
+        <label htmlFor="cvtAmount">{t('conv.amount', { sym: metaOf(from).symbol })}</label>
         <input
           id="cvtAmount"
           type="number"
@@ -72,14 +74,14 @@ export function Convertir({ reload }: { reload: () => Promise<void> }) {
         {error && <div className="error">{error}</div>}
         {msg && <div className="ok">{msg}</div>}
         <button className="btn" type="submit" disabled={busy}>
-          {busy ? 'Convirtiendo…' : 'Convertir'}
+          {busy ? t('conv.busy') : t('conv.btn')}
         </button>
       </form>
 
       <div className="rates-box">
-        <div className="rates-title">Precios de referencia</div>
+        <div className="rates-title">{t('conv.refPrices')}</div>
         <div className="rate-line">
-          <span>Dólar (BCCR)</span>
+          <span>{t('conv.dollarBccr')}</span>
           <span>{rates?.crc?.sell ? `₡${rates.crc.sell.toFixed(2)}` : '—'}</span>
         </div>
         {CRYPTO.slice(0, 6).map((c) => (

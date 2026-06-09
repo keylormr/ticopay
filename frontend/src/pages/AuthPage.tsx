@@ -2,10 +2,13 @@ import { useState, type FormEvent } from 'react'
 import { startAuthentication } from '@simplewebauthn/browser'
 import { ApiError, api } from '../api'
 import { useAuth } from '../auth'
+import { useI18n } from '../i18n'
 import { Brand } from '../components/Brand'
+import { LangToggle } from '../components/LangToggle'
 
 export function AuthPage() {
   const { login, register, applyAuth } = useAuth()
+  const { t } = useI18n()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -25,7 +28,7 @@ export function AuthPage() {
         await register({ email, password, fullName, phone: phone || undefined })
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo conectar con el servidor')
+      setError(err instanceof ApiError ? err.message : t('auth.err.connect'))
     } finally {
       setBusy(false)
     }
@@ -35,7 +38,7 @@ export function AuthPage() {
     setError('')
     const e = email.trim().toLowerCase()
     if (!e) {
-      setError('Ingresá tu correo para usar la llave de acceso')
+      setError(t('auth.err.passkeyEmail'))
       return
     }
     setBusy(true)
@@ -47,8 +50,8 @@ export function AuthPage() {
       applyAuth(res)
     } catch (err) {
       if (err instanceof ApiError) setError(err.message)
-      else if (err instanceof Error && /abort|cancel|NotAllowed/i.test(err.name + err.message)) setError('Cancelaste el acceso con la llave')
-      else setError('No se pudo usar la llave de acceso')
+      else if (err instanceof Error && /abort|cancel|NotAllowed/i.test(err.name + err.message)) setError(t('auth.err.passkeyCancel'))
+      else setError(t('auth.err.passkey'))
     } finally {
       setBusy(false)
     }
@@ -57,67 +60,59 @@ export function AuthPage() {
   return (
     <div className="auth-wrap">
       <form className="card" onSubmit={onSubmit}>
-        <Brand />
-        <h1>{mode === 'login' ? 'Iniciá sesión' : 'Creá tu cuenta'}</h1>
-        <p className="sub">Pagos rápidos entre ticos, en colones. 🇨🇷</p>
+        <div className="card-top">
+          <Brand />
+          <LangToggle />
+        </div>
+        <h1>{mode === 'login' ? t('auth.login.title') : t('auth.register.title')}</h1>
+        <p className="sub">{t('app.tagline')}</p>
 
         {mode === 'register' && (
           <>
-            <label htmlFor="fullName">Nombre completo</label>
-            <input
-              id="fullName"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="María Jiménez"
-              required
-            />
-            <label htmlFor="phone">Teléfono (opcional)</label>
-            <input
-              id="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="8888-0000"
-            />
+            <label htmlFor="fullName">{t('auth.fullName')}</label>
+            <input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="María Jiménez" required />
+            <label htmlFor="phone">{t('auth.phone')}</label>
+            <input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="8888-0000" />
           </>
         )}
 
-        <label htmlFor="email">Correo electrónico</label>
+        <label htmlFor="email">{t('auth.email')}</label>
         <input
           id="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="vos@ejemplo.cr"
+          placeholder={t('auth.email.ph')}
           required
         />
 
-        <label htmlFor="password">Contraseña</label>
+        <label htmlFor="password">{t('auth.password')}</label>
         <input
           id="password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder={mode === 'register' ? 'Mínimo 8 caracteres' : '••••••••'}
+          placeholder={mode === 'register' ? t('auth.password.ph.register') : '••••••••'}
           required
         />
 
         {error && <div className="error">{error}</div>}
 
         <button className="btn" type="submit" disabled={busy}>
-          {busy ? 'Procesando…' : mode === 'login' ? 'Entrar' : 'Registrarme'}
+          {busy ? t('auth.processing') : mode === 'login' ? t('auth.btn.login') : t('auth.btn.register')}
         </button>
 
         {mode === 'login' && (
           <>
-            <div className="or-divider">o</div>
+            <div className="or-divider">{t('auth.or')}</div>
             <button type="button" className="btn btn-passkey" onClick={onPasskey} disabled={busy}>
-              🔑 Entrar con llave de acceso
+              {t('auth.passkey')}
             </button>
           </>
         )}
 
         <div className="switch">
-          {mode === 'login' ? '¿No tenés cuenta?' : '¿Ya tenés cuenta?'}{' '}
+          {mode === 'login' ? t('auth.noAccount') : t('auth.haveAccount')}{' '}
           <button
             type="button"
             onClick={() => {
@@ -125,13 +120,13 @@ export function AuthPage() {
               setError('')
             }}
           >
-            {mode === 'login' ? 'Registrate' : 'Iniciá sesión'}
+            {mode === 'login' ? t('auth.switch.register') : t('auth.switch.login')}
           </button>
         </div>
 
         {mode === 'login' && (
           <div className="hint">
-            <strong>Cuenta demo:</strong> maria@ticopay.cr · contraseña <code>password123</code>
+            <strong>{t('auth.demo')}</strong> maria@ticopay.cr · {t('auth.demo.pwd')} <code>password123</code>
           </div>
         )}
       </form>

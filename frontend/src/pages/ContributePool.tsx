@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, api, type Pool, type PoolContribution } from '../api'
+import { useI18n } from '../i18n'
 import { Brand } from '../components/Brand'
+import { LangToggle } from '../components/LangToggle'
 import { metaOf } from '../currencies'
 import { formatDate, formatMoney } from '../format'
 
 export function ContributePool() {
   const { id = '' } = useParams()
+  const { t } = useI18n()
   const [pool, setPool] = useState<Pool | null>(null)
   const [contribs, setContribs] = useState<PoolContribution[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,7 +25,7 @@ export function ContributePool() {
         setPool(r.pool)
         setContribs(r.contributions)
       })
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'No se pudo cargar la vaquita'))
+      .catch((e) => setError(e instanceof ApiError ? e.message : t('pool.err.load')))
       .finally(() => setLoading(false))
   }
   useEffect(load, [id])
@@ -32,17 +35,17 @@ export function ContributePool() {
     setOk('')
     const value = Number(amount)
     if (!Number.isFinite(value) || value <= 0) {
-      setError('Indicá un monto')
+      setError(t('pool.err.amount'))
       return
     }
     setBusy(true)
     try {
       await api.contributePool(id, value)
-      setOk(`¡Gracias por tu aporte de ${formatMoney(Math.round(value * 100), pool!.currency)}!`)
+      setOk(t('pool.thanks', { amount: formatMoney(Math.round(value * 100), pool!.currency) }))
       setAmount('')
       load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'No se pudo aportar')
+      setError(err instanceof ApiError ? err.message : t('pool.err'))
     } finally {
       setBusy(false)
     }
@@ -53,48 +56,42 @@ export function ContributePool() {
   return (
     <div className="auth-wrap">
       <div className="card">
-        <Brand />
+        <div className="card-top">
+          <Brand />
+          <LangToggle />
+        </div>
         {loading ? (
-          <p className="sub">Cargando vaquita…</p>
+          <p className="sub">{t('pool.loading')}</p>
         ) : !pool ? (
           <>
-            <h1>Vaquita no disponible</h1>
-            <div className="error">{error || 'No encontramos esta vaquita.'}</div>
-            <Link className="btn" to="/">Ir al inicio</Link>
+            <h1>{t('pool.notFound.title')}</h1>
+            <div className="error">{error || t('pool.notFound')}</div>
+            <Link className="btn" to="/">{t('pay.toHome')}</Link>
           </>
         ) : (
           <>
             <h1>{pool.name} 🐮</h1>
-            <p className="sub">{pool.description || `Organizada por ${pool.ownerName}`}</p>
+            <p className="sub">{pool.description || t('pool.org', { name: pool.ownerName })}</p>
             <div className="pay-amount">{formatMoney(pool.raisedCents, pool.currency)}</div>
             {pool.goalCents > 0 && (
               <>
                 <div className="bar">
                   <div className="bar-fill" style={{ width: `${pct}%` }} />
                 </div>
-                <div className="bar-label">
-                  {pct}% de {formatMoney(pool.goalCents, pool.currency)}
-                </div>
+                <div className="bar-label">{t('pool.goalOf', { pct, goal: formatMoney(pool.goalCents, pool.currency) })}</div>
               </>
             )}
 
             {pool.isOwner ? (
-              <div className="hint" style={{ marginTop: 16 }}>Es tu vaquita: compartí el enlace para recibir aportes.</div>
+              <div className="hint" style={{ marginTop: 16 }}>{t('pool.owner')}</div>
             ) : (
               <>
-                <label htmlFor="contribAmount">Tu aporte ({metaOf(pool.currency).symbol})</label>
-                <input
-                  id="contribAmount"
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
+                <label htmlFor="contribAmount">{t('pool.your', { sym: metaOf(pool.currency).symbol })}</label>
+                <input id="contribAmount" type="number" min="0" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} />
                 {error && <div className="error">{error}</div>}
                 {ok && <div className="ok">{ok}</div>}
                 <button className="btn" onClick={contribute} disabled={busy}>
-                  {busy ? 'Aportando…' : 'Aportar'}
+                  {busy ? t('pool.busy') : t('pool.contribute')}
                 </button>
               </>
             )}
@@ -114,7 +111,7 @@ export function ContributePool() {
               </ul>
             )}
             <div className="switch">
-              <Link to="/">Ir a mi cuenta</Link>
+              <Link to="/">{t('pay.toAccount')}</Link>
             </div>
           </>
         )}
