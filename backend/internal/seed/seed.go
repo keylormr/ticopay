@@ -62,6 +62,15 @@ func Run(ctx context.Context, pool *pgxpool.Pool) error {
 		); err != nil {
 			return fmt.Errorf("seed accounts %s: %w", du.email, err)
 		}
+		// Remaining catalog currencies at zero balance.
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO accounts (user_id, currency, balance_cents)
+			 SELECT $1, code, 0 FROM unnest($2::text[]) AS code
+			 ON CONFLICT (user_id, currency) DO NOTHING`,
+			userID, []string{"USDC", "BNB", "SOL", "XRP", "ADA", "DOGE", "TRX", "DOT", "LTC", "LINK", "AVAX", "MATIC"},
+		); err != nil {
+			return fmt.Errorf("seed extra accounts %s: %w", du.email, err)
+		}
 	}
 
 	// A demo vaquita and a pending cobro so the new features aren't empty.

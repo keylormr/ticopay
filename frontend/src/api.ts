@@ -1,6 +1,23 @@
 const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
-export type Currency = 'CRC' | 'USD' | 'BTC' | 'ETH' | 'USDT'
+export type Currency =
+  | 'CRC'
+  | 'USD'
+  | 'BTC'
+  | 'ETH'
+  | 'USDT'
+  | 'USDC'
+  | 'BNB'
+  | 'SOL'
+  | 'XRP'
+  | 'ADA'
+  | 'DOGE'
+  | 'TRX'
+  | 'DOT'
+  | 'LTC'
+  | 'LINK'
+  | 'AVAX'
+  | 'MATIC'
 
 export interface Rates {
   crc: ExchangeRate

@@ -15,11 +15,25 @@ type CurrencyInfo struct {
 
 // currencyList is the ordered catalog. Order drives account creation and UI.
 var currencyList = []CurrencyInfo{
+	// Fiat
 	{Code: "CRC", Type: "fiat", Decimals: 2, Symbol: "₡", Name: "Colón"},
 	{Code: "USD", Type: "fiat", Decimals: 2, Symbol: "$", Name: "Dólar"},
+	// Crypto
 	{Code: "BTC", Type: "crypto", Decimals: 8, Symbol: "₿", Name: "Bitcoin", CoinGeckoID: "bitcoin"},
 	{Code: "ETH", Type: "crypto", Decimals: 8, Symbol: "Ξ", Name: "Ethereum", CoinGeckoID: "ethereum"},
 	{Code: "USDT", Type: "crypto", Decimals: 2, Symbol: "₮", Name: "Tether USD", CoinGeckoID: "tether"},
+	{Code: "USDC", Type: "crypto", Decimals: 2, Symbol: "$", Name: "USD Coin", CoinGeckoID: "usd-coin"},
+	{Code: "BNB", Type: "crypto", Decimals: 8, Symbol: "BNB", Name: "BNB", CoinGeckoID: "binancecoin"},
+	{Code: "SOL", Type: "crypto", Decimals: 8, Symbol: "◎", Name: "Solana", CoinGeckoID: "solana"},
+	{Code: "XRP", Type: "crypto", Decimals: 6, Symbol: "XRP", Name: "XRP", CoinGeckoID: "ripple"},
+	{Code: "ADA", Type: "crypto", Decimals: 6, Symbol: "₳", Name: "Cardano", CoinGeckoID: "cardano"},
+	{Code: "DOGE", Type: "crypto", Decimals: 8, Symbol: "Ð", Name: "Dogecoin", CoinGeckoID: "dogecoin"},
+	{Code: "TRX", Type: "crypto", Decimals: 6, Symbol: "TRX", Name: "TRON", CoinGeckoID: "tron"},
+	{Code: "DOT", Type: "crypto", Decimals: 8, Symbol: "DOT", Name: "Polkadot", CoinGeckoID: "polkadot"},
+	{Code: "LTC", Type: "crypto", Decimals: 8, Symbol: "Ł", Name: "Litecoin", CoinGeckoID: "litecoin"},
+	{Code: "LINK", Type: "crypto", Decimals: 8, Symbol: "LINK", Name: "Chainlink", CoinGeckoID: "chainlink"},
+	{Code: "AVAX", Type: "crypto", Decimals: 8, Symbol: "AVAX", Name: "Avalanche", CoinGeckoID: "avalanche-2"},
+	{Code: "MATIC", Type: "crypto", Decimals: 8, Symbol: "MATIC", Name: "Polygon", CoinGeckoID: "matic-network"},
 }
 
 var currencyByCode = func() map[string]CurrencyInfo {

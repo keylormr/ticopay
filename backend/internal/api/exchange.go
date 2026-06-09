@@ -32,8 +32,14 @@ type Rates struct {
 }
 
 var (
-	fallbackRate   = ExchangeRate{Buy: 505, Sell: 515, Source: "fallback"}
-	cryptoFallback = map[string]float64{"BTC": 60000, "ETH": 3000, "USDT": 1}
+	fallbackRate = ExchangeRate{Buy: 505, Sell: 515, Source: "fallback"}
+	// Approximate USD prices used only when CoinGecko is unreachable and we
+	// have no previously-cached value.
+	cryptoFallback = map[string]float64{
+		"BTC": 63000, "ETH": 1700, "USDT": 1, "USDC": 1, "BNB": 600,
+		"SOL": 150, "XRP": 0.5, "ADA": 0.4, "DOGE": 0.1, "TRX": 0.12,
+		"DOT": 4, "LTC": 80, "LINK": 12, "AVAX": 25, "MATIC": 0.5,
+	}
 )
 
 type ratesCache struct {
@@ -54,13 +60,23 @@ func (a *App) getRates(ctx context.Context) Rates {
 		return rateStore.rates
 	}
 
+	prev := rateStore.rates // last good values (may be zero on first run)
+
 	crc, err := fetchHaciendaRate(ctx)
 	if err != nil {
-		crc = fallbackRate
+		if prev.Crc.Sell > 0 {
+			crc = prev.Crc // serve stale rather than fallback
+		} else {
+			crc = fallbackRate
+		}
 	}
 	crypto, err := fetchCryptoPrices(ctx)
 	if err != nil {
-		crypto = cloneFloatMap(cryptoFallback)
+		if len(prev.Crypto) > 0 {
+			crypto = prev.Crypto // keep last good prices
+		} else {
+			crypto = cloneFloatMap(cryptoFallback)
+		}
 	}
 
 	usdPerUnit := map[string]float64{}
