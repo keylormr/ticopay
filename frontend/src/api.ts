@@ -162,6 +162,7 @@ async function refreshTokens(): Promise<boolean> {
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const headers = new Headers(init.headers)
   headers.set('Content-Type', 'application/json')
+  headers.set('X-Lang', localStorage.getItem('ticopay.lang') || 'es')
   if (tokens.access) headers.set('Authorization', `Bearer ${tokens.access}`)
 
   const res = await fetch(`${API_URL}${path}`, { ...init, headers })

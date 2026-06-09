@@ -20,7 +20,7 @@ func (a *App) handleCreatePool(w http.ResponseWriter, r *http.Request) {
 		Currency    string  `json:"currency"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
@@ -155,7 +155,7 @@ func (a *App) handleContributePool(w http.ResponseWriter, r *http.Request) {
 		Amount float64 `json:"amount"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	if req.Amount <= 0 {

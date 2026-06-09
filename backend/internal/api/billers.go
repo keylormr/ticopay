@@ -50,7 +50,7 @@ func (a *App) handlePayService(w http.ResponseWriter, r *http.Request) {
 		Currency  string  `json:"currency"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 
@@ -61,7 +61,7 @@ func (a *App) handlePayService(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Reference = strings.TrimSpace(req.Reference)
 	if req.Reference == "" {
-		writeError(w, http.StatusBadRequest, biller.RefLabel+" es obligatorio")
+		writeError(w, http.StatusBadRequest, "la referencia es obligatoria")
 		return
 	}
 	currency := req.Currency

@@ -41,10 +41,14 @@ func (a *App) Router() http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   a.cfg.CORSOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Lang"},
 		AllowCredentials: false,
 		MaxAge:           300,
 	}))
+
+	// Innermost middleware: tag the writer with the request language so error
+	// messages can be localized.
+	r.Use(withLang)
 
 	r.Get("/health", a.handleHealth)
 
@@ -105,7 +109,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
+	writeJSON(w, status, map[string]string{"error": localizeError(w, msg)})
 }
 
 func decodeJSON(r *http.Request, dst any) error {

@@ -41,7 +41,7 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 		Phone    string `json:"phone"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 
@@ -49,15 +49,15 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 	req.FullName = strings.TrimSpace(req.FullName)
 	req.Phone = strings.TrimSpace(req.Phone)
 	if req.Email == "" || !strings.Contains(req.Email, "@") {
-		writeError(w, http.StatusBadRequest, "a valid email is required")
+		writeError(w, http.StatusBadRequest, "ingresá un correo válido")
 		return
 	}
 	if len(req.Password) < 8 {
-		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		writeError(w, http.StatusBadRequest, "la contraseña debe tener al menos 8 caracteres")
 		return
 	}
 	if req.FullName == "" {
-		writeError(w, http.StatusBadRequest, "full name is required")
+		writeError(w, http.StatusBadRequest, "el nombre completo es obligatorio")
 		return
 	}
 
@@ -85,7 +85,7 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			writeError(w, http.StatusConflict, "email or phone already registered")
+			writeError(w, http.StatusConflict, "ese correo o teléfono ya está registrado")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "could not create user")
@@ -121,7 +121,7 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
@@ -137,7 +137,7 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 		 FROM users WHERE email = $1`, req.Email,
 	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.CreatedAt, &hash)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !auth.CheckPassword(hash, req.Password)) {
-		writeError(w, http.StatusUnauthorized, "invalid email or password")
+		writeError(w, http.StatusUnauthorized, "correo o contraseña incorrectos")
 		return
 	}
 	if err != nil {
@@ -158,7 +158,7 @@ func (a *App) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		RefreshToken string `json:"refreshToken"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	claims, err := a.jwt.Parse(req.RefreshToken, "refresh")

@@ -34,7 +34,7 @@ func (a *App) handleSubmitKYC(w http.ResponseWriter, r *http.Request) {
 		IDNumber string `json:"idNumber"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	req.IDType = strings.ToLower(strings.TrimSpace(req.IDType))

@@ -31,7 +31,7 @@ func (a *App) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 		Description string  `json:"description"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	currency := req.Currency

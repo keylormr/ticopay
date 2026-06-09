@@ -85,7 +85,7 @@ func (a *App) handleSendMoney(w http.ResponseWriter, r *http.Request) {
 		Description string  `json:"description"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	to := req.To
@@ -107,7 +107,7 @@ func (a *App) handleSendMoney(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if to == "" {
-		writeError(w, http.StatusBadRequest, "recipient (email or phone) is required")
+		writeError(w, http.StatusBadRequest, "el destinatario (correo o teléfono) es obligatorio")
 		return
 	}
 
@@ -129,7 +129,7 @@ func (a *App) handleConvert(w http.ResponseWriter, r *http.Request) {
 		Amount float64 `json:"amount"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	if !validCurrency(req.From) || !validCurrency(req.To) || req.From == req.To {

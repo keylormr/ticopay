@@ -246,7 +246,7 @@ func (a *App) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Request
 		Name         string          `json:"name"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	session, err := a.waParse(req.SessionToken)
@@ -300,7 +300,7 @@ func (a *App) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Request) {
 		Email string `json:"email"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	email := strings.ToLower(strings.TrimSpace(req.Email))
@@ -338,7 +338,7 @@ func (a *App) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 		Credential   json.RawMessage `json:"credential"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "solicitud inválida")
 		return
 	}
 	session, err := a.waParse(req.SessionToken)
