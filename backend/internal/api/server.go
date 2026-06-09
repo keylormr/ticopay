@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ticopay/backend/internal/auth"
@@ -17,14 +18,17 @@ type App struct {
 	pool *pgxpool.Pool
 	jwt  *auth.Manager
 	cfg  config.Config
+	wa   *webauthn.WebAuthn
 }
 
 func NewApp(pool *pgxpool.Pool, cfg config.Config) *App {
-	return &App{
+	app := &App{
 		pool: pool,
 		jwt:  auth.NewManager(cfg.JWTSecret, cfg.AccessTTL, cfg.RefreshTTL),
 		cfg:  cfg,
 	}
+	app.wa = newWebAuthn(cfg)
+	return app
 }
 
 func (a *App) Router() http.Handler {
@@ -48,6 +52,10 @@ func (a *App) Router() http.Handler {
 		r.Post("/auth/register", a.handleRegister)
 		r.Post("/auth/login", a.handleLogin)
 		r.Post("/auth/refresh", a.handleRefresh)
+
+		// Passwordless login with a passkey (no auth yet).
+		r.Post("/auth/passkey/begin", a.handlePasskeyLoginBegin)
+		r.Post("/auth/passkey/finish", a.handlePasskeyLoginFinish)
 
 		// Public: USD/CRC reference rate + full fiat/crypto rate table.
 		r.Get("/exchange-rate", a.handleExchangeRate)
@@ -74,6 +82,12 @@ func (a *App) Router() http.Handler {
 
 			r.Get("/billers", a.handleListBillers)
 			r.Post("/payments/service", a.handlePayService)
+
+			// Passkey management (requires an active session).
+			r.Post("/passkeys/register/begin", a.handlePasskeyRegisterBegin)
+			r.Post("/passkeys/register/finish", a.handlePasskeyRegisterFinish)
+			r.Get("/passkeys", a.handleListPasskeys)
+			r.Delete("/passkeys/{id}", a.handleDeletePasskey)
 		})
 	})
 

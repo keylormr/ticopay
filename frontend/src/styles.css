@@ -150,6 +150,21 @@ button {
 .btn-red:hover {
   background: var(--cr-red-600);
 }
+.btn-passkey {
+  background: var(--white);
+  color: var(--cr-blue);
+  border: 2px solid var(--cr-blue);
+  margin-top: 10px;
+}
+.btn-passkey:hover {
+  background: #f0f4ff;
+}
+.or-divider {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 16px;
+}
 .btn-ghost {
   background: transparent;
   color: var(--cr-blue);

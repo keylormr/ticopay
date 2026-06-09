@@ -247,6 +247,29 @@ export const api = {
     })
   },
 
+  // --- passkeys (WebAuthn) ---
+  passkeyRegisterBegin() {
+    return request<{ publicKey: unknown; sessionToken: string }>('/api/passkeys/register/begin', { method: 'POST', body: '{}' })
+  },
+  passkeyRegisterFinish(input: { sessionToken: string; credential: unknown; name: string }) {
+    return request<{ status: string }>('/api/passkeys/register/finish', { method: 'POST', body: body(input) })
+  },
+  passkeyLoginBegin(email: string) {
+    return request<{ publicKey: unknown; sessionToken: string }>('/api/auth/passkey/begin', {
+      method: 'POST',
+      body: body({ email }),
+    })
+  },
+  passkeyLoginFinish(input: { sessionToken: string; credential: unknown }) {
+    return request<AuthResult>('/api/auth/passkey/finish', { method: 'POST', body: body(input) }, false)
+  },
+  listPasskeys() {
+    return request<{ passkeys: { id: string; name: string; createdAt: string }[] }>('/api/passkeys')
+  },
+  deletePasskey(id: string) {
+    return request<{ status: string }>(`/api/passkeys/${id}`, { method: 'DELETE' })
+  },
+
   // --- service / utility payments ---
   billers() {
     return request<{ billers: Biller[] }>('/api/billers')

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { api, tokens, type Account, type Currency, type User } from './api'
+import { api, tokens, type Account, type AuthResult, type Currency, type User } from './api'
 
 interface AuthState {
   user: User | null
@@ -7,6 +7,7 @@ interface AuthState {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   register: (input: { email: string; password: string; fullName: string; phone?: string }) => Promise<void>
+  applyAuth: (res: AuthResult) => void
   logout: () => void
   refresh: () => Promise<void>
   setUser: (u: User) => void
@@ -49,6 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccounts(res.accounts)
   }
 
+  function applyAuth(res: AuthResult) {
+    tokens.set(res.accessToken, res.refreshToken)
+    setUser(res.user)
+    setAccounts(res.accounts)
+  }
+
   function logout() {
     tokens.clear()
     setUser(null)
@@ -68,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       login,
       register,
+      applyAuth,
       logout,
       refresh,
       setUser,
