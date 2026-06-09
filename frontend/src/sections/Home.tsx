@@ -93,14 +93,15 @@ export function Home({ version, reload }: { version: number; reload: () => Promi
           </form>
 
           <div className="rates-box">
+            <div className="rates-title">Precios de referencia</div>
             <div className="rate-line">
-              <span>Dólar BCCR</span>
+              <span>Dólar (BCCR)</span>
               <span>{rates?.crc?.sell ? `₡${rates.crc.sell.toFixed(2)}` : '—'}</span>
             </div>
-            {CRYPTO.map((c) => (
+            {CRYPTO.slice(0, 6).map((c) => (
               <div className="rate-line" key={c.code}>
                 <span>
-                  {c.symbol} {c.code}
+                  {c.name} ({c.code})
                 </span>
                 <span>{rates?.crypto?.[c.code] != null ? `$${rates.crypto[c.code].toLocaleString('en-US')}` : '—'}</span>
               </div>

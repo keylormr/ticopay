@@ -33,7 +33,7 @@ var currencyList = []CurrencyInfo{
 	{Code: "LTC", Type: "crypto", Decimals: 8, Symbol: "Ł", Name: "Litecoin", CoinGeckoID: "litecoin"},
 	{Code: "LINK", Type: "crypto", Decimals: 8, Symbol: "LINK", Name: "Chainlink", CoinGeckoID: "chainlink"},
 	{Code: "AVAX", Type: "crypto", Decimals: 8, Symbol: "AVAX", Name: "Avalanche", CoinGeckoID: "avalanche-2"},
-	{Code: "MATIC", Type: "crypto", Decimals: 8, Symbol: "MATIC", Name: "Polygon", CoinGeckoID: "matic-network"},
+	{Code: "MATIC", Type: "crypto", Decimals: 8, Symbol: "POL", Name: "Polygon", CoinGeckoID: "polygon-ecosystem-token"},
 }
 
 var currencyByCode = func() map[string]CurrencyInfo {

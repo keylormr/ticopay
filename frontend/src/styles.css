@@ -685,3 +685,172 @@ select:focus {
   font-weight: 700;
   color: var(--ink);
 }
+
+/* === Friendly dashboard redesign === */
+.who-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.hero {
+  background: linear-gradient(135deg, var(--cr-blue), var(--cr-blue-700));
+  color: #fff;
+  border-radius: 20px;
+  padding: 26px 28px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  right: -30px;
+  top: -30px;
+  width: 150px;
+  height: 150px;
+  background: var(--cr-red);
+  opacity: 0.25;
+  border-radius: 50%;
+}
+.hero-label {
+  opacity: 0.85;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.hero-amount {
+  font-size: 2.6rem;
+  font-weight: 800;
+  margin-top: 6px;
+  line-height: 1.1;
+}
+.hero-sub {
+  opacity: 0.8;
+  margin-top: 4px;
+}
+
+.section-title {
+  font-size: 1rem;
+  color: #334155;
+  margin: 24px 0 10px;
+}
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 24px 0 10px;
+}
+.section-head .section-title {
+  margin: 0;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--cr-blue);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+.coin-logo {
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 800;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.fiat-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 560px) {
+  .fiat-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.fiat-card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--cr-blue);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.fc-name {
+  font-weight: 700;
+  color: #334155;
+}
+.fc-code {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-left: 4px;
+}
+.fc-amount {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-top: 2px;
+}
+
+.coin-panel {
+  padding: 6px 18px;
+}
+.coin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.coin-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.coin-row:last-child {
+  border-bottom: none;
+}
+.coin-info {
+  flex: 1;
+  min-width: 0;
+}
+.coin-name {
+  font-weight: 700;
+}
+.coin-ticker {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.coin-bal {
+  text-align: right;
+  white-space: nowrap;
+}
+.coin-amount {
+  font-weight: 700;
+}
+.coin-fiat {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.tab-icon {
+  margin-right: 6px;
+}
+.rates-title {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
