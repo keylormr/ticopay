@@ -33,7 +33,7 @@ func (a *App) handleCreatePool(w http.ResponseWriter, r *http.Request) {
 		currency = "CRC"
 	}
 	if !validCurrency(currency) {
-		writeError(w, http.StatusBadRequest, "unsupported currency")
+		writeError(w, http.StatusBadRequest, "moneda no soportada")
 		return
 	}
 	goalCents := toMinor(req.GoalAmount, currency)
@@ -159,7 +159,7 @@ func (a *App) handleContributePool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Amount <= 0 {
-		writeError(w, http.StatusBadRequest, "amount must be greater than zero")
+		writeError(w, http.StatusBadRequest, "el monto debe ser mayor a cero")
 		return
 	}
 

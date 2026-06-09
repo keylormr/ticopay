@@ -39,7 +39,7 @@ func (a *App) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 		currency = "CRC"
 	}
 	if !validCurrency(currency) {
-		writeError(w, http.StatusBadRequest, "unsupported currency")
+		writeError(w, http.StatusBadRequest, "moneda no soportada")
 		return
 	}
 
@@ -187,7 +187,7 @@ func (a *App) handlePayRequest(w http.ResponseWriter, r *http.Request) {
 		pay = toMinor(body.Amount, currency)
 	}
 	if pay <= 0 {
-		writeError(w, http.StatusBadRequest, "amount must be greater than zero")
+		writeError(w, http.StatusBadRequest, "el monto debe ser mayor a cero")
 		return
 	}
 

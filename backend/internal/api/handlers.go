@@ -98,12 +98,12 @@ func (a *App) handleSendMoney(w http.ResponseWriter, r *http.Request) {
 		currency = "CRC"
 	}
 	if !validCurrency(currency) {
-		writeError(w, http.StatusBadRequest, "unsupported currency")
+		writeError(w, http.StatusBadRequest, "moneda no soportada")
 		return
 	}
 	amountCents := toMinor(req.Amount, currency)
 	if amountCents <= 0 {
-		writeError(w, http.StatusBadRequest, "amount must be greater than zero")
+		writeError(w, http.StatusBadRequest, "el monto debe ser mayor a cero")
 		return
 	}
 	if to == "" {
@@ -138,7 +138,7 @@ func (a *App) handleConvert(w http.ResponseWriter, r *http.Request) {
 	}
 	fromCents := toMinor(req.Amount, req.From)
 	if fromCents <= 0 {
-		writeError(w, http.StatusBadRequest, "amount must be greater than zero")
+		writeError(w, http.StatusBadRequest, "el monto debe ser mayor a cero")
 		return
 	}
 
@@ -200,7 +200,7 @@ func (a *App) handleConvert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if from.bal < fromCents {
-		writeError(w, http.StatusBadRequest, "insufficient balance")
+		writeError(w, http.StatusBadRequest, "saldo insuficiente")
 		return
 	}
 
@@ -243,13 +243,13 @@ var (
 func writeTransferError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, errNoRecipient):
-		writeError(w, http.StatusNotFound, "recipient not found")
+		writeError(w, http.StatusNotFound, "destinatario no encontrado")
 	case errors.Is(err, errSelfTransfer):
-		writeError(w, http.StatusBadRequest, "you cannot send money to yourself")
+		writeError(w, http.StatusBadRequest, "no podés enviarte dinero a vos mismo")
 	case errors.Is(err, errInsufficient):
-		writeError(w, http.StatusBadRequest, "insufficient balance")
+		writeError(w, http.StatusBadRequest, "saldo insuficiente")
 	default:
-		writeError(w, http.StatusInternalServerError, "transfer failed")
+		writeError(w, http.StatusInternalServerError, "no se pudo completar la operación")
 	}
 }
 
