@@ -207,7 +207,31 @@ button {
   justify-content: space-between;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 30;
+}
+.total-chip {
+  background: #eef2ff;
+  color: var(--cr-blue);
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.95rem;
+}
+
+/* sticky tab bar under the topbar */
+.tabs.sticky-tabs {
+  position: sticky;
+  top: 57px;
+  z-index: 20;
+  margin: 0;
+  background: var(--white);
+  border-bottom: 2px solid var(--line);
+  padding: 6px 24px 0;
+}
+@media (max-width: 560px) {
+  .total-chip {
+    display: none;
+  }
 }
 .topbar .who {
   display: flex;

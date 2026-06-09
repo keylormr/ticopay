@@ -5,17 +5,19 @@ import { Brand } from '../components/Brand'
 import { CoinLogo } from '../components/CoinLogo'
 import { CRYPTO, FIAT, metaOf } from '../currencies'
 import { formatMoney } from '../format'
-import { Home } from '../sections/Home'
+import { Movimientos } from '../sections/Movimientos'
+import { Convertir } from '../sections/Convertir'
 import { SendMoney } from '../sections/SendMoney'
 import { Cobros } from '../sections/Cobros'
 import { Servicios } from '../sections/Servicios'
 import { Vaquitas } from '../sections/Vaquitas'
 import { Account as AccountTab } from '../sections/Account'
 
-type Tab = 'inicio' | 'enviar' | 'cobrar' | 'servicios' | 'vaquitas' | 'cuenta'
+type Tab = 'inicio' | 'convertir' | 'enviar' | 'cobrar' | 'servicios' | 'vaquitas' | 'cuenta'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Inicio', icon: '🏠' },
+  { id: 'convertir', label: 'Convertir', icon: '🔄' },
   { id: 'enviar', label: 'Enviar', icon: '💸' },
   { id: 'cobrar', label: 'Cobrar', icon: '🧾' },
   { id: 'servicios', label: 'Servicios', icon: '💡' },
@@ -41,7 +43,6 @@ export function Dashboard() {
 
   const accountOf = (code: string) => accounts.find((a) => a.currency === code)
 
-  // Value of a wallet expressed in colones (for the friendly "≈ ₡" line).
   function valueCrc(a: Account): number | null {
     if (!rates) return null
     const major = a.balanceCents / 10 ** metaOf(a.currency).decimals
@@ -61,101 +62,111 @@ export function Dashboard() {
   const nonZeroCrypto = cryptoWallets.filter((a) => a.balanceCents > 0)
   const shownCrypto = showAllCrypto ? cryptoWallets : nonZeroCrypto
 
+  function changeTab(t: Tab) {
+    setTab(t)
+    window.scrollTo({ top: 0 })
+  }
+
   return (
     <>
       <header className="topbar">
         <Brand />
         <div className="who">
+          {totalCrc != null && <span className="total-chip">{formatMoney(Math.round(totalCrc * 100), 'CRC')}</span>}
           <span className="who-name">{user?.fullName}</span>
-          {user?.kycStatus === 'verified' && <span className="badge-verified">✓ Verificado</span>}
+          {user?.kycStatus === 'verified' && <span className="badge-verified">✓</span>}
           <button className="btn-ghost" onClick={logout}>
             Salir
           </button>
         </div>
       </header>
 
-      <main className="container">
-        {/* Hero: estimated net worth */}
-        <section className="hero">
-          <div className="hero-label">Tu dinero en Tico Pay</div>
-          <div className="hero-amount">{totalCrc != null ? formatMoney(Math.round(totalCrc * 100), 'CRC') : '—'}</div>
-          {totalUsd != null && <div className="hero-sub">≈ {formatMoney(Math.round(totalUsd * 100), 'USD')}</div>}
-        </section>
-
-        {/* Fiat */}
-        <h3 className="section-title">Mis monedas</h3>
-        <div className="fiat-cards">
-          {FIAT.map((c) => {
-            const a = accountOf(c.code)
-            if (!a) return null
-            return (
-              <div className="fiat-card" key={c.code} style={{ borderTopColor: c.color }}>
-                <CoinLogo code={c.code} />
-                <div className="fc-body">
-                  <div className="fc-name">
-                    {c.name} <span className="fc-code">{c.code}</span>
-                  </div>
-                  <div className="fc-amount">{formatMoney(a.balanceCents, c.code)}</div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Crypto */}
-        <div className="section-head">
-          <h3 className="section-title">Mis criptomonedas</h3>
-          <button className="link-btn" onClick={() => setShowAllCrypto((s) => !s)}>
-            {showAllCrypto ? 'Ver solo con saldo' : `Ver todas (${cryptoWallets.length})`}
+      <nav className="tabs sticky-tabs">
+        {TABS.map((t) => (
+          <button key={t.id} className={`tab ${tab === t.id ? 'tab-active' : ''}`} onClick={() => changeTab(t.id)}>
+            <span className="tab-icon">{t.icon}</span>
+            {t.label}
           </button>
-        </div>
-        <div className="panel coin-panel">
-          {shownCrypto.length === 0 ? (
-            <div className="empty">
-              Todavía no tenés cripto. <button className="link-btn" onClick={() => setShowAllCrypto(true)}>Ver monedas disponibles</button>
-            </div>
-          ) : (
-            <ul className="coin-list">
-              {shownCrypto.map((a) => {
-                const m = metaOf(a.currency)
-                const v = valueCrc(a)
+        ))}
+      </nav>
+
+      <main className="container">
+        {tab === 'inicio' && (
+          <>
+            <section className="hero">
+              <div className="hero-label">Tu dinero en Tico Pay</div>
+              <div className="hero-amount">{totalCrc != null ? formatMoney(Math.round(totalCrc * 100), 'CRC') : '—'}</div>
+              {totalUsd != null && <div className="hero-sub">≈ {formatMoney(Math.round(totalUsd * 100), 'USD')}</div>}
+            </section>
+
+            <h3 className="section-title">Mis monedas</h3>
+            <div className="fiat-cards">
+              {FIAT.map((c) => {
+                const a = accountOf(c.code)
+                if (!a) return null
                 return (
-                  <li className="coin-row" key={a.id}>
-                    <CoinLogo code={a.currency} />
-                    <div className="coin-info">
-                      <div className="coin-name">{m.name}</div>
-                      <div className="coin-ticker">{a.currency}</div>
+                  <div className="fiat-card" key={c.code} style={{ borderTopColor: c.color }}>
+                    <CoinLogo code={c.code} />
+                    <div className="fc-body">
+                      <div className="fc-name">
+                        {c.name} <span className="fc-code">{c.code}</span>
+                      </div>
+                      <div className="fc-amount">{formatMoney(a.balanceCents, c.code)}</div>
                     </div>
-                    <div className="coin-bal">
-                      <div className="coin-amount">{formatMoney(a.balanceCents, a.currency)}</div>
-                      {v != null && a.balanceCents > 0 && (
-                        <div className="coin-fiat">≈ {formatMoney(Math.round(v * 100), 'CRC')}</div>
-                      )}
-                    </div>
-                  </li>
+                  </div>
                 )
               })}
-            </ul>
-          )}
-        </div>
+            </div>
 
-        <nav className="tabs">
-          {TABS.map((t) => (
-            <button key={t.id} className={`tab ${tab === t.id ? 'tab-active' : ''}`} onClick={() => setTab(t.id)}>
-              <span className="tab-icon">{t.icon}</span>
-              {t.label}
-            </button>
-          ))}
-        </nav>
+            <div className="section-head">
+              <h3 className="section-title">Mis criptomonedas</h3>
+              <button className="link-btn" onClick={() => setShowAllCrypto((s) => !s)}>
+                {showAllCrypto ? 'Ver solo con saldo' : `Ver todas (${cryptoWallets.length})`}
+              </button>
+            </div>
+            <div className="panel coin-panel">
+              {shownCrypto.length === 0 ? (
+                <div className="empty">
+                  Todavía no tenés cripto.{' '}
+                  <button className="link-btn" onClick={() => setShowAllCrypto(true)}>
+                    Ver monedas disponibles
+                  </button>
+                </div>
+              ) : (
+                <ul className="coin-list">
+                  {shownCrypto.map((a) => {
+                    const m = metaOf(a.currency)
+                    const v = valueCrc(a)
+                    return (
+                      <li className="coin-row" key={a.id}>
+                        <CoinLogo code={a.currency} />
+                        <div className="coin-info">
+                          <div className="coin-name">{m.name}</div>
+                          <div className="coin-ticker">{a.currency}</div>
+                        </div>
+                        <div className="coin-bal">
+                          <div className="coin-amount">{formatMoney(a.balanceCents, a.currency)}</div>
+                          {v != null && a.balanceCents > 0 && (
+                            <div className="coin-fiat">≈ {formatMoney(Math.round(v * 100), 'CRC')}</div>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
 
-        <div className="tab-body">
-          {tab === 'inicio' && <Home version={version} reload={reload} />}
-          {tab === 'enviar' && <SendMoney reload={reload} />}
-          {tab === 'cobrar' && <Cobros version={version} reload={reload} />}
-          {tab === 'servicios' && <Servicios reload={reload} />}
-          {tab === 'vaquitas' && <Vaquitas version={version} reload={reload} />}
-          {tab === 'cuenta' && <AccountTab />}
-        </div>
+            <Movimientos version={version} />
+          </>
+        )}
+
+        {tab === 'convertir' && <Convertir reload={reload} />}
+        {tab === 'enviar' && <SendMoney reload={reload} />}
+        {tab === 'cobrar' && <Cobros version={version} reload={reload} />}
+        {tab === 'servicios' && <Servicios reload={reload} />}
+        {tab === 'vaquitas' && <Vaquitas version={version} reload={reload} />}
+        {tab === 'cuenta' && <AccountTab />}
       </main>
     </>
   )
