@@ -51,7 +51,7 @@ export interface Transaction {
   currency: Currency
   description: string
   status: string
-  kind: 'transfer' | 'conversion' | 'request' | 'pool'
+  kind: 'transfer' | 'conversion' | 'request' | 'pool' | 'service'
   createdAt: string
 }
 
@@ -90,6 +90,15 @@ export interface PoolContribution {
   name: string
   amountCents: number
   createdAt: string
+}
+
+export interface Biller {
+  id: string
+  name: string
+  category: string
+  icon: string
+  refLabel: string
+  refPlaceholder: string
 }
 
 export interface AuthResult {
@@ -235,6 +244,17 @@ export const api = {
     return request<{ status: string; amountCents: number }>(`/api/pools/${id}/contribute`, {
       method: 'POST',
       body: body({ amount }),
+    })
+  },
+
+  // --- service / utility payments ---
+  billers() {
+    return request<{ billers: Biller[] }>('/api/billers')
+  },
+  payService(input: { billerId: string; reference: string; amount: number; currency: Currency }) {
+    return request<{ id: string; newBalance: number }>('/api/payments/service', {
+      method: 'POST',
+      body: body(input),
     })
   },
 }

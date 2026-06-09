@@ -123,7 +123,7 @@ export function Home({ version, reload }: { version: number; reload: () => Promi
               <li className="tx-item" key={t.id}>
                 <div className={`tx-icon tx-${t.direction}`}>{ICON[t.direction]}</div>
                 <div className="tx-meta">
-                  <div className="name">{t.direction === 'self' ? t.description || 'Conversión' : t.counterpart}</div>
+                  <div className="name">{txTitle(t)}</div>
                   <div className="desc">
                     {labelKind(t)} · {formatDate(t.createdAt)}
                   </div>
@@ -141,10 +141,17 @@ export function Home({ version, reload }: { version: number; reload: () => Promi
   )
 }
 
+function txTitle(t: Transaction): string {
+  if (t.kind === 'service') return t.description || 'Servicio'
+  if (t.direction === 'self') return t.description || 'Conversión'
+  return t.counterpart
+}
+
 function labelKind(t: Transaction): string {
   if (t.kind === 'conversion') return 'Conversión'
   if (t.kind === 'pool') return 'Vaquita'
   if (t.kind === 'request') return 'Cobro'
+  if (t.kind === 'service') return 'Servicio'
   if (t.description) return t.description
   return t.direction === 'in' ? 'Pago recibido' : 'Pago enviado'
 }

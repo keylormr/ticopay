@@ -71,6 +71,9 @@ func (a *App) Router() http.Handler {
 			r.Get("/pools", a.handleListPools)
 			r.Get("/pools/{id}", a.handleGetPool)
 			r.Post("/pools/{id}/contribute", a.handleContributePool)
+
+			r.Get("/billers", a.handleListBillers)
+			r.Post("/payments/service", a.handlePayService)
 		})
 	})
 

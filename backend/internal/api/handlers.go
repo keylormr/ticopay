@@ -358,3 +358,40 @@ func (a *App) transferToUser(ctx context.Context, senderID, recipientID, currenc
 	}
 	return txID, nil
 }
+
+// payOut debits the user's wallet for an outgoing payment with no internal
+// recipient (e.g. a utility bill). Records a transaction with to_account = NULL.
+func (a *App) payOut(ctx context.Context, senderID, currency string, amountCents int64, description, kind string) (string, int64, error) {
+	tx, err := a.pool.Begin(ctx)
+	if err != nil {
+		return "", 0, errTransferOther
+	}
+	defer tx.Rollback(ctx)
+
+	var fromID string
+	var fromBalance int64
+	if err := tx.QueryRow(ctx,
+		`SELECT id, balance_cents FROM accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`,
+		senderID, currency,
+	).Scan(&fromID, &fromBalance); err != nil {
+		return "", 0, errNoSenderAcct
+	}
+	if fromBalance < amountCents {
+		return "", 0, errInsufficient
+	}
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, amountCents, fromID); err != nil {
+		return "", 0, errTransferOther
+	}
+	var txID string
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
+		 VALUES ($1, NULL, $2, $3, $4, 'completed', $5) RETURNING id`,
+		fromID, amountCents, currency, description, kind,
+	).Scan(&txID); err != nil {
+		return "", 0, errTransferOther
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", 0, errTransferOther
+	}
+	return txID, fromBalance - amountCents, nil
+}

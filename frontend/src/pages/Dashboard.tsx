@@ -8,15 +8,17 @@ import { formatMoney } from '../format'
 import { Home } from '../sections/Home'
 import { SendMoney } from '../sections/SendMoney'
 import { Cobros } from '../sections/Cobros'
+import { Servicios } from '../sections/Servicios'
 import { Vaquitas } from '../sections/Vaquitas'
 import { Account as AccountTab } from '../sections/Account'
 
-type Tab = 'inicio' | 'enviar' | 'cobrar' | 'vaquitas' | 'cuenta'
+type Tab = 'inicio' | 'enviar' | 'cobrar' | 'servicios' | 'vaquitas' | 'cuenta'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Inicio', icon: '🏠' },
   { id: 'enviar', label: 'Enviar', icon: '💸' },
   { id: 'cobrar', label: 'Cobrar', icon: '🧾' },
+  { id: 'servicios', label: 'Servicios', icon: '💡' },
   { id: 'vaquitas', label: 'Vaquitas', icon: '🐮' },
   { id: 'cuenta', label: 'Cuenta', icon: '👤' },
 ]
@@ -150,6 +152,7 @@ export function Dashboard() {
           {tab === 'inicio' && <Home version={version} reload={reload} />}
           {tab === 'enviar' && <SendMoney reload={reload} />}
           {tab === 'cobrar' && <Cobros version={version} reload={reload} />}
+          {tab === 'servicios' && <Servicios reload={reload} />}
           {tab === 'vaquitas' && <Vaquitas version={version} reload={reload} />}
           {tab === 'cuenta' && <AccountTab />}
         </div>
