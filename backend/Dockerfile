@@ -1,5 +1,5 @@
 # --- build stage ---
-FROM golang:1.23-alpine AS build
+FROM golang:1.25-alpine AS build
 WORKDIR /src
 
 # -mod=mod lets `go build` populate go.sum on first build (no committed go.sum yet).
