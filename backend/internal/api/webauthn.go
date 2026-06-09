@@ -59,7 +59,7 @@ func (u *waUser) WebAuthnCredentials() []webauthn.Credential { return u.creds }
 
 func (a *App) loadCredentials(ctx context.Context, uid string) ([]webauthn.Credential, error) {
 	rows, err := a.pool.Query(ctx,
-		`SELECT id, public_key, attestation_type, aaguid, sign_count, transports
+		`SELECT id, public_key, attestation_type, aaguid, sign_count, transports, backup_eligible, backup_state
 		 FROM webauthn_credentials WHERE user_id = $1`, uid)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,8 @@ func (a *App) loadCredentials(ctx context.Context, uid string) ([]webauthn.Crede
 		var id, pk, aaguid []byte
 		var attType, transports string
 		var signCount int64
-		if err := rows.Scan(&id, &pk, &attType, &aaguid, &signCount, &transports); err != nil {
+		var backupEligible, backupState bool
+		if err := rows.Scan(&id, &pk, &attType, &aaguid, &signCount, &transports, &backupEligible, &backupState); err != nil {
 			return nil, err
 		}
 		creds = append(creds, webauthn.Credential{
@@ -79,6 +80,11 @@ func (a *App) loadCredentials(ctx context.Context, uid string) ([]webauthn.Crede
 			PublicKey:       pk,
 			AttestationType: attType,
 			Transport:       parseTransports(transports),
+			Flags: webauthn.CredentialFlags{
+				UserPresent:    true,
+				BackupEligible: backupEligible,
+				BackupState:    backupState,
+			},
 			Authenticator: webauthn.Authenticator{
 				AAGUID:    aaguid,
 				SignCount: uint32(signCount),
@@ -181,6 +187,16 @@ func (a *App) waParse(token string) (*webauthn.SessionData, error) {
 	return &sd, nil
 }
 
+// waErrDetail surfaces the underlying WebAuthn error (incl. go-webauthn's
+// DevInfo) for debugging. TODO: revert to generic messages once stable.
+func waErrDetail(err error) string {
+	var pe *protocol.Error
+	if errors.As(err, &pe) {
+		return pe.Type + " | " + pe.Details + " | " + pe.DevInfo
+	}
+	return err.Error()
+}
+
 // --- registration (enroll a passkey while logged in) ---
 
 func (a *App) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.Request) {
@@ -245,12 +261,12 @@ func (a *App) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Request
 	}
 	parsed, err := protocol.ParseCredentialCreationResponseBody(bytes.NewReader(req.Credential))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "credencial inválida")
+		writeError(w, http.StatusBadRequest, "credencial inválida: "+waErrDetail(err))
 		return
 	}
 	credential, err := a.wa.CreateCredential(user, *session, parsed)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "no se pudo registrar la llave")
+		writeError(w, http.StatusBadRequest, "no se pudo registrar la llave: "+waErrDetail(err))
 		return
 	}
 
@@ -259,11 +275,13 @@ func (a *App) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Request
 		name = "Llave de acceso"
 	}
 	if _, err := a.pool.Exec(r.Context(),
-		`INSERT INTO webauthn_credentials (id, user_id, public_key, attestation_type, aaguid, sign_count, transports, name)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		`INSERT INTO webauthn_credentials
+		   (id, user_id, public_key, attestation_type, aaguid, sign_count, transports, name, backup_eligible, backup_state)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		credential.ID, userID(r), credential.PublicKey, credential.AttestationType,
 		credential.Authenticator.AAGUID, int64(credential.Authenticator.SignCount),
 		joinTransports(credential.Transport), name,
+		credential.Flags.BackupEligible, credential.Flags.BackupState,
 	); err != nil {
 		writeError(w, http.StatusInternalServerError, "no se pudo guardar la llave")
 		return
@@ -341,12 +359,12 @@ func (a *App) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	parsed, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(req.Credential))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "credencial inválida")
+		writeError(w, http.StatusBadRequest, "credencial inválida: "+waErrDetail(err))
 		return
 	}
 	credential, err := a.wa.ValidateLogin(user, *session, parsed)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "no se pudo verificar la llave de acceso")
+		writeError(w, http.StatusUnauthorized, "no se pudo verificar: "+waErrDetail(err))
 		return
 	}
 
