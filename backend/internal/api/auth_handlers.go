@@ -126,6 +126,11 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 
+	if loginAttempts.locked(req.Email) {
+		writeError(w, http.StatusTooManyRequests, "demasiados intentos, probá de nuevo en unos minutos")
+		return
+	}
+
 	ctx := r.Context()
 	var (
 		u    models.User
@@ -137,6 +142,7 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 		 FROM users WHERE email = $1`, req.Email,
 	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.CreatedAt, &hash)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !auth.CheckPassword(hash, req.Password)) {
+		loginAttempts.fail(req.Email)
 		writeError(w, http.StatusUnauthorized, "correo o contraseña incorrectos")
 		return
 	}
@@ -150,6 +156,7 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not load accounts")
 		return
 	}
+	loginAttempts.reset(req.Email)
 	a.issueAuthResponse(w, http.StatusOK, u, accounts)
 }
 

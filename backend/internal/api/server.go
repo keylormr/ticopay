@@ -3,10 +3,12 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -53,13 +55,22 @@ func (a *App) Router() http.Handler {
 	r.Get("/health", a.handleHealth)
 
 	r.Route("/api", func(r chi.Router) {
-		r.Post("/auth/register", a.handleRegister)
-		r.Post("/auth/login", a.handleLogin)
-		r.Post("/auth/refresh", a.handleRefresh)
+		// Rate-limit auth attempts per IP to slow brute force.
+		r.Group(func(r chi.Router) {
+			r.Use(httprate.Limit(
+				30, time.Minute,
+				httprate.WithKeyByIP(),
+				httprate.WithLimitHandler(func(w http.ResponseWriter, _ *http.Request) {
+					writeError(w, http.StatusTooManyRequests, "demasiados intentos, probá de nuevo en unos minutos")
+				}),
+			))
+			r.Post("/auth/register", a.handleRegister)
+			r.Post("/auth/login", a.handleLogin)
+			r.Post("/auth/passkey/begin", a.handlePasskeyLoginBegin)
+			r.Post("/auth/passkey/finish", a.handlePasskeyLoginFinish)
+		})
 
-		// Passwordless login with a passkey (no auth yet).
-		r.Post("/auth/passkey/begin", a.handlePasskeyLoginBegin)
-		r.Post("/auth/passkey/finish", a.handlePasskeyLoginFinish)
+		r.Post("/auth/refresh", a.handleRefresh)
 
 		// Public: USD/CRC reference rate + full fiat/crypto rate table.
 		r.Get("/exchange-rate", a.handleExchangeRate)

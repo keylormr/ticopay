@@ -53,6 +53,7 @@ var errsEN = map[string]string{
 	"el nombre completo es obligatorio":               "full name is required",
 	"ese correo o teléfono ya está registrado":        "that email or phone is already registered",
 	"correo o contraseña incorrectos":                 "invalid email or password",
+	"demasiados intentos, probá de nuevo en unos minutos": "too many attempts, try again in a few minutes",
 
 	"no encontramos a esa persona en Tico Pay":  "we couldn't find that person on Tico Pay",
 	"cobro no encontrado":                        "request not found",
