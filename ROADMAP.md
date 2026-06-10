@@ -10,7 +10,7 @@ Estado y pendientes de Tico Pay (pagos CR full-stack). Pensado para retomar en u
 ---
 
 ## ✅ Hecho y desplegado (verificado)
-Auth (clave + **passkeys/WebAuthn** passwordless) · multimoneda (₡, $ + 15 cripto con precios CoinGecko + tipo de cambio BCCR) · **enviar** por teléfono/correo · **SINPE Móvil** simulado (con comprobante) · **convertir** entre cualquier par · **cobros** (con QR/WhatsApp) · **vaquitas** · **pago de servicios** (ICE, AyA, marchamo, RTV, CCSS…) · **KYC** cédula/DIMEX · patrimonio estimado · UI amigable con pestañas · **i18n ES/EN** (UI + errores del backend) · **rate-limiting + bloqueo de cuenta** (5 intentos → 15 min).
+Auth (clave + **passkeys/WebAuthn** passwordless + **códigos de recuperación** de un solo uso) · multimoneda (₡, $ + 15 cripto con precios CoinGecko + tipo de cambio BCCR) · **enviar** por teléfono/correo · **SINPE Móvil** simulado (con comprobante) · **convertir** entre cualquier par · **cobros** (con QR/WhatsApp) · **vaquitas** · **pago de servicios** (ICE, AyA, marchamo, RTV, CCSS…) · **KYC** cédula/DIMEX · patrimonio estimado · UI amigable con pestañas · **i18n ES/EN** (UI + errores del backend) · **rate-limiting + bloqueo de cuenta** (5 intentos → 15 min).
 
 > ⚠️ **Importante:** cripto, servicios y SINPE son un **libro contable interno (simulado)** — no mueven plata real ni liquidan con blockchain/ICE/INS/SINPE real.
 
@@ -22,11 +22,11 @@ Auth (clave + **passkeys/WebAuthn** passwordless) · multimoneda (₡, $ + 15 cr
 - **Bloqueador:** entregar el enlace/código requiere email (Resend o SendGrid, plan gratis → API key en env de Render).
 - **Approach:** migración `password_reset_tokens` (token hasheado + expiración ~30 min); `POST /api/auth/forgot` (genera token, manda email) y `POST /api/auth/reset` (valida token, cambia hash). Front: enlace "¿Olvidaste tu contraseña?" en `AuthPage.tsx`.
 
-### 2. ~~Códigos de recuperación de passkey~~ ✅ **Hecho** (sin desplegar)
+### 2. ~~Códigos de recuperación de passkey~~ ✅ **Hecho, desplegado y verificado en prod**
 - 10 códigos de un solo uso (formato `XXXX-XXXX`, alfabeto sin glifos ambiguos), hasheados con bcrypt en `passkey_recovery_codes` (migración `0007`). Se muestran UNA sola vez; regenerar invalida los anteriores.
 - Backend: `recovery.go` → `GET/POST /api/passkeys/recovery-codes` (autenticado) y `POST /api/auth/recovery` (login con código, comparte el bloqueo por intentos de `hardening.go`, key `recovery:<email>`). Tests en `recovery_test.go`.
 - Front: `sections/Account.tsx` (sección "🛟 Códigos de recuperación": estado/generar/regenerar/copiar) y `pages/AuthPage.tsx` (enlace "¿Perdiste tu llave?" → entrar con código). i18n ES/EN agregado.
-- **Pendiente de deploy:** `git push origin main` (la migración `0007` corre sola con `RUN_MIGRATIONS=true`).
+- Verificado E2E contra prod: generar → entrar con código → el código se consume (reuso da 401, `remaining` baja). ✓
 
 ### 3. Verificación de correo al registrarse  *(necesita correo, igual que #1)*
 ### 4. (Opcional) 2FA TOTP como alternativa a passkeys (`github.com/pquerna/otp`).
