@@ -19,6 +19,25 @@ export function Convertir({ reload }: { reload: () => Promise<void> }) {
     api.rates().then(setRates).catch(() => {})
   }, [])
 
+  function swap() {
+    setFrom(to)
+    setTo(from)
+    setMsg('')
+    setError('')
+  }
+
+  // Live estimate using the same USD-bridge math as the backend.
+  const preview = (() => {
+    const v = Number(amount)
+    if (!rates || !Number.isFinite(v) || v <= 0 || from === to) return null
+    const upF = rates.usdPerUnit[from]
+    const upT = rates.usdPerUnit[to]
+    if (!upF || !upT) return null
+    const result = (v * upF) / upT
+    const dec = metaOf(to).decimals
+    return formatMoney(Math.round(result * 10 ** dec), to)
+  })()
+
   async function onConvert(e: FormEvent) {
     e.preventDefault()
     setError('')
@@ -55,6 +74,9 @@ export function Convertir({ reload }: { reload: () => Promise<void> }) {
             <label htmlFor="from">{t('conv.from')}</label>
             <CurrencySelect id="from" value={from} onChange={setFrom} />
           </div>
+          <button type="button" className="cvt-swap" onClick={swap} title={t('conv.swap')} aria-label={t('conv.swap')}>
+            ⇄
+          </button>
           <div>
             <label htmlFor="to">{t('conv.to')}</label>
             <CurrencySelect id="to" value={to} onChange={setTo} />
@@ -71,6 +93,11 @@ export function Convertir({ reload }: { reload: () => Promise<void> }) {
           placeholder={metaOf(from).type === 'crypto' ? '0.01' : '10000'}
           required
         />
+        {preview && (
+          <div className="cvt-preview">
+            {t('conv.youGet')} <strong>{preview}</strong>
+          </div>
+        )}
         {error && <div className="error">{error}</div>}
         {msg && <div className="ok">{msg}</div>}
         <button className="btn" type="submit" disabled={busy}>

@@ -77,9 +77,11 @@ const es: Dict = {
 
   // Convert
   'conv.title': 'Convertir',
-  'conv.sub': 'Entre colones, dólares y cripto, al instante.',
+  'conv.sub': 'Entre fiat y cripto, en cualquier sentido, al instante.',
   'conv.from': 'De',
   'conv.to': 'A',
+  'conv.swap': 'Intercambiar monedas',
+  'conv.youGet': 'Recibís aprox.',
   'conv.amount': 'Monto en {sym}',
   'conv.btn': 'Convertir',
   'conv.busy': 'Convirtiendo…',
@@ -334,9 +336,11 @@ const en: Dict = {
   'mov.sinpe': 'SINPE Móvil',
 
   'conv.title': 'Convert',
-  'conv.sub': 'Between colones, dollars and crypto, instantly.',
+  'conv.sub': 'Between fiat and crypto, either direction, instantly.',
   'conv.from': 'From',
   'conv.to': 'To',
+  'conv.swap': 'Swap currencies',
+  'conv.youGet': 'You get approx.',
   'conv.amount': 'Amount in {sym}',
   'conv.btn': 'Convert',
   'conv.busy': 'Converting…',
