@@ -10,7 +10,7 @@ Estado y pendientes de Tico Pay (pagos CR full-stack). Pensado para retomar en u
 ---
 
 ## ✅ Hecho y desplegado (verificado)
-Auth (clave + **passkeys/WebAuthn** passwordless + **códigos de recuperación** de un solo uso) · multimoneda (₡, $ + 15 cripto con precios CoinGecko + tipo de cambio BCCR) · **enviar** por teléfono/correo · **SINPE Móvil** simulado (con comprobante) · **convertir** entre cualquier par · **cobros** (con QR/WhatsApp) · **vaquitas** · **pago de servicios** (ICE, AyA, marchamo, RTV, CCSS…) · **KYC** cédula/DIMEX · patrimonio estimado · UI amigable con pestañas · **i18n ES/EN** (UI + errores del backend) · **rate-limiting + bloqueo de cuenta** (5 intentos → 15 min).
+Auth (clave + **passkeys/WebAuthn** passwordless + **códigos de recuperación** de un solo uso) · multimoneda (₡, $, €, MXN + 15 cripto con precios CoinGecko + tipo de cambio BCCR) · **enviar** por teléfono/correo · **SINPE Móvil** simulado (con comprobante) · **convertir** entre cualquier par · **cobros** (con QR/WhatsApp) · **vaquitas** · **pago de servicios** (ICE, AyA, marchamo, RTV, CCSS…) · **KYC** cédula/DIMEX · patrimonio estimado · UI amigable con pestañas · **i18n ES/EN** (UI + errores del backend) · **rate-limiting + bloqueo de cuenta** (5 intentos → 15 min).
 
 > ⚠️ **Importante:** cripto, servicios y SINPE son un **libro contable interno (simulado)** — no mueven plata real ni liquidan con blockchain/ICE/INS/SINPE real.
 
@@ -34,10 +34,10 @@ Auth (clave + **passkeys/WebAuthn** passwordless + **códigos de recuperación**
 ---
 
 ## 🔵 Pendientes — Pulido
-- **Nombre personalizado** del passkey al registrar (hoy se guarda fijo "Mi dispositivo"); editar en `sections/Account.tsx` + `handlePasskeyRegisterFinish`.
-- Traducir los pocos **errores 500 técnicos** restantes (mapa en `internal/api/i18n.go`).
-- **Quitar `RUN_MIGRATIONS` y `SEED_DEMO`** de las env vars de Render (ya corrieron; son idempotentes).
-- **Más fiat** (EUR, MXN, …): necesita feed FX gratis (p. ej. `frankfurter.app`). Agregar al catálogo `internal/api/currency.go` + `src/currencies.ts` y al cálculo de `usdPerUnit` en `internal/api/exchange.go`.
+- ✅ ~~**Nombre personalizado** del passkey al registrar~~ — input opcional en `sections/Account.tsx` (default localizado si va vacío). **Desplegado.**
+- ✅ ~~Traducir los **errores 500 técnicos**~~ — mapa `errsES` en `internal/api/i18n.go` (español es el idioma por defecto). **Desplegado y verificado.**
+- ✅ ~~**Más fiat** (EUR, MXN)~~ — catálogo + feed FX `frankfurter.app` (`usdPerUnit` con caché/fallback), migración `0008` hace backfill de cuentas a usuarios existentes. **Desplegado y verificado** (EUR≈1.15, MXN≈0.057; convert USD→EUR ok). Para agregar más (GBP, CAD…): solo sumar al catálogo `currency.go` + `currencies.ts` + `format.ts` y una migración de backfill.
+- **Quitar `RUN_MIGRATIONS` y `SEED_DEMO`** de las env vars de Render (ya corrieron; son idempotentes). *Pendiente: cambio en el dashboard de Render, no en código. Nota: dejar `RUN_MIGRATIONS=true` no hace daño y permite que futuras migraciones corran solas.*
 
 ---
 
@@ -60,7 +60,7 @@ Auth (clave + **passkeys/WebAuthn** passwordless + **códigos de recuperación**
 
 ## 🧭 Notas de arquitectura (para retomar rápido)
 - **Backend** `backend/internal/api/`: handlers por dominio (`handlers.go`, `auth_handlers.go`, `sinpe.go`, `requests_handlers.go`, `pools_handlers.go`, `billers.go`, `webauthn.go`, `exchange.go`, `kyc_handlers.go`). Rutas en `server.go`. Hardening en `hardening.go`. i18n de errores en `i18n.go` (cabecera `X-Lang`).
-- **Migraciones**: SQL numerado en `backend/internal/db/migrations/` (embebidas, corren con `RUN_MIGRATIONS=true`). Última: `0007_passkey_recovery_codes.sql`. `transactions.kind` es texto libre (`transfer|conversion|request|pool|service|sinpe`).
+- **Migraciones**: SQL numerado en `backend/internal/db/migrations/` (embebidas, corren con `RUN_MIGRATIONS=true`). Última: `0008_more_fiat.sql`. `transactions.kind` es texto libre (`transfer|conversion|request|pool|service|sinpe`).
 - **Catálogo de monedas**: `internal/api/currency.go` (backend) espejado en `src/currencies.ts` (front). Montos en unidades menores enteras por moneda (`toMinor`/`majorOf`).
 - **i18n front**: `src/i18n.tsx` (claves ES/EN + selector). El cliente manda `X-Lang`.
 - **Go 1.25** requerido (go-webauthn) → Dockerfile usa `golang:1.25-alpine`. Build local: Go portable en `$env:TEMP\goportable\go`; front `npm run build`. (Docker Desktop local crashea por un bug suyo — no se usa.)
