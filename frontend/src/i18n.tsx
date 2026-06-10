@@ -33,6 +33,10 @@ const es: Dict = {
   'auth.err.passkeyEmail': 'Ingresá tu correo para usar la llave de acceso',
   'auth.err.passkeyCancel': 'Cancelaste el acceso con la llave',
   'auth.err.passkey': 'No se pudo usar la llave de acceso',
+  'auth.err.recoveryCode': 'Ingresá tu código de recuperación',
+  'auth.recovery.link': '¿Perdiste tu llave? Usá un código de recuperación',
+  'auth.recovery.label': 'Código de recuperación',
+  'auth.recovery.btn': 'Entrar con código',
 
   // Dashboard
   'dash.netWorth': 'Tu dinero en Tico Pay',
@@ -211,6 +215,18 @@ const es: Dict = {
   'pk.err.cancel': 'Cancelaste el registro de la llave',
   'pk.err': 'No se pudo agregar la llave de acceso',
 
+  // Recovery codes
+  'rc.title': '🛟 Códigos de recuperación',
+  'rc.sub': 'Tu plan B si perdés todas tus llaves de acceso. Guardalos en un lugar seguro: cada código sirve una sola vez.',
+  'rc.remaining': 'Tenés {n} códigos sin usar.',
+  'rc.none': 'Todavía no generaste códigos de recuperación.',
+  'rc.generate': 'Generar códigos',
+  'rc.regenerate': 'Generar nuevos códigos',
+  'rc.busy': 'Generando…',
+  'rc.warn': '⚠️ Estos códigos se muestran una sola vez. Copialos y guardalos ahora; al salir de esta pantalla no los volvés a ver. Generar nuevos invalida los anteriores.',
+  'rc.copy': 'Copiar códigos',
+  'rc.err': 'No se pudieron generar los códigos',
+
   // Share landing pages
   'pay.loading': 'Cargando cobro…',
   'pay.done.title': '¡Pago realizado! ✅',
@@ -275,6 +291,10 @@ const en: Dict = {
   'auth.err.passkeyEmail': 'Enter your email to use a passkey',
   'auth.err.passkeyCancel': 'You cancelled the passkey sign-in',
   'auth.err.passkey': "Couldn't use the passkey",
+  'auth.err.recoveryCode': 'Enter your recovery code',
+  'auth.recovery.link': 'Lost your passkey? Use a recovery code',
+  'auth.recovery.label': 'Recovery code',
+  'auth.recovery.btn': 'Sign in with code',
 
   'dash.netWorth': 'Your money in Tico Pay',
   'dash.myMoney': 'My currencies',
@@ -439,6 +459,17 @@ const en: Dict = {
   'pk.ok': 'Passkey added! You can now sign in without a password.',
   'pk.err.cancel': 'You cancelled the passkey setup',
   'pk.err': "Couldn't add the passkey",
+
+  'rc.title': '🛟 Recovery codes',
+  'rc.sub': 'Your backup plan if you lose every passkey. Keep them somewhere safe — each code works only once.',
+  'rc.remaining': 'You have {n} unused codes.',
+  'rc.none': "You haven't generated recovery codes yet.",
+  'rc.generate': 'Generate codes',
+  'rc.regenerate': 'Generate new codes',
+  'rc.busy': 'Generating…',
+  'rc.warn': "⚠️ These codes are shown only once. Copy and store them now — you won't see them again after leaving this screen. Generating new ones invalidates the old codes.",
+  'rc.copy': 'Copy codes',
+  'rc.err': "Couldn't generate the codes",
 
   'pay.loading': 'Loading request…',
   'pay.done.title': 'Payment complete! ✅',

@@ -70,6 +70,7 @@ export function Account() {
       </section>
 
       <Passkeys />
+      <RecoveryCodes />
     </>
   )
 }
@@ -146,6 +147,84 @@ function Passkeys() {
       {ok && <div className="ok">{ok}</div>}
       <button className="btn" onClick={add} disabled={busy}>
         {busy ? t('pk.busy') : t('pk.add')}
+      </button>
+    </section>
+  )
+}
+
+function RecoveryCodes() {
+  const { t } = useI18n()
+  const [remaining, setRemaining] = useState<number | null>(null)
+  const [codes, setCodes] = useState<string[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  function load() {
+    api
+      .recoveryStatus()
+      .then((r) => setRemaining(r.remaining))
+      .catch(() => {})
+  }
+  useEffect(load, [])
+
+  async function generate() {
+    setError('')
+    setCopied(false)
+    setBusy(true)
+    try {
+      const res = await api.generateRecoveryCodes()
+      setCodes(res.codes)
+      setRemaining(res.codes.length)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('rc.err'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copy() {
+    if (!codes) return
+    try {
+      await navigator.clipboard.writeText(codes.join('\n'))
+      setCopied(true)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <section className="panel narrow" style={{ marginTop: 18 }}>
+      <h2>{t('rc.title')}</h2>
+      <p className="sub">{t('rc.sub')}</p>
+
+      {codes ? (
+        <>
+          <div className="rc-grid">
+            {codes.map((c) => (
+              <code className="rc-code" key={c}>
+                {c}
+              </code>
+            ))}
+          </div>
+          <div className="error">{t('rc.warn')}</div>
+          <button className="btn-ghost" onClick={copy}>
+            {copied ? t('share.copied') : t('rc.copy')}
+          </button>
+        </>
+      ) : (
+        <div className={remaining && remaining > 0 ? 'ok' : 'empty'}>
+          {remaining === null
+            ? t('common.loading')
+            : remaining > 0
+              ? t('rc.remaining', { n: remaining })
+              : t('rc.none')}
+        </div>
+      )}
+
+      {error && <div className="error">{error}</div>}
+      <button className="btn" onClick={generate} disabled={busy}>
+        {busy ? t('rc.busy') : remaining && remaining > 0 ? t('rc.regenerate') : t('rc.generate')}
       </button>
     </section>
   )

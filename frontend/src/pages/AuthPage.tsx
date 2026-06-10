@@ -16,6 +16,8 @@ export function AuthPage() {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showRecovery, setShowRecovery] = useState(false)
+  const [recoveryCode, setRecoveryCode] = useState('')
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -52,6 +54,28 @@ export function AuthPage() {
       if (err instanceof ApiError) setError(err.message)
       else if (err instanceof Error && /abort|cancel|NotAllowed/i.test(err.name + err.message)) setError(t('auth.err.passkeyCancel'))
       else setError(t('auth.err.passkey'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onRecovery() {
+    setError('')
+    const e = email.trim().toLowerCase()
+    if (!e) {
+      setError(t('auth.err.passkeyEmail'))
+      return
+    }
+    if (!recoveryCode.trim()) {
+      setError(t('auth.err.recoveryCode'))
+      return
+    }
+    setBusy(true)
+    try {
+      const res = await api.recoveryLogin(e, recoveryCode)
+      applyAuth(res)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('auth.err.connect'))
     } finally {
       setBusy(false)
     }
@@ -108,6 +132,28 @@ export function AuthPage() {
             <button type="button" className="btn btn-passkey" onClick={onPasskey} disabled={busy}>
               {t('auth.passkey')}
             </button>
+
+            {showRecovery ? (
+              <>
+                <label htmlFor="recoveryCode" style={{ marginTop: 12 }}>
+                  {t('auth.recovery.label')}
+                </label>
+                <input
+                  id="recoveryCode"
+                  value={recoveryCode}
+                  onChange={(e) => setRecoveryCode(e.target.value)}
+                  placeholder="ABCD-EF23"
+                  autoComplete="off"
+                />
+                <button type="button" className="btn" onClick={onRecovery} disabled={busy}>
+                  {busy ? t('auth.processing') : t('auth.recovery.btn')}
+                </button>
+              </>
+            ) : (
+              <button type="button" className="link-btn" onClick={() => setShowRecovery(true)}>
+                {t('auth.recovery.link')}
+              </button>
+            )}
           </>
         )}
 

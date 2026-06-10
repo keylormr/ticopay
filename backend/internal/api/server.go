@@ -68,6 +68,7 @@ func (a *App) Router() http.Handler {
 			r.Post("/auth/login", a.handleLogin)
 			r.Post("/auth/passkey/begin", a.handlePasskeyLoginBegin)
 			r.Post("/auth/passkey/finish", a.handlePasskeyLoginFinish)
+			r.Post("/auth/recovery", a.handleRecoveryLogin)
 		})
 
 		r.Post("/auth/refresh", a.handleRefresh)
@@ -104,6 +105,10 @@ func (a *App) Router() http.Handler {
 			r.Post("/passkeys/register/finish", a.handlePasskeyRegisterFinish)
 			r.Get("/passkeys", a.handleListPasskeys)
 			r.Delete("/passkeys/{id}", a.handleDeletePasskey)
+
+			// One-time recovery codes (fallback when all passkeys are lost).
+			r.Get("/passkeys/recovery-codes", a.handleRecoveryStatus)
+			r.Post("/passkeys/recovery-codes", a.handleGenerateRecoveryCodes)
 		})
 	})
 

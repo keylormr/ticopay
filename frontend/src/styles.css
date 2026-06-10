@@ -1020,3 +1020,23 @@ select:focus {
   font-size: 0.7rem;
   color: var(--muted);
 }
+
+/* Recovery codes */
+.rc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 12px 0;
+}
+.rc-code {
+  background: #f1f5f9;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: #0f172a;
+  user-select: all;
+}

@@ -277,6 +277,17 @@ export const api = {
     return request<{ status: string }>(`/api/passkeys/${id}`, { method: 'DELETE' })
   },
 
+  // --- recovery codes (passkey fallback) ---
+  recoveryStatus() {
+    return request<{ remaining: number }>('/api/passkeys/recovery-codes')
+  },
+  generateRecoveryCodes() {
+    return request<{ codes: string[] }>('/api/passkeys/recovery-codes', { method: 'POST', body: '{}' })
+  },
+  recoveryLogin(email: string, code: string) {
+    return request<AuthResult>('/api/auth/recovery', { method: 'POST', body: body({ email, code }) }, false)
+  },
+
   // --- service / utility payments ---
   billers() {
     return request<{ billers: Biller[] }>('/api/billers')

@@ -22,9 +22,11 @@ Auth (clave + **passkeys/WebAuthn** passwordless) · multimoneda (₡, $ + 15 cr
 - **Bloqueador:** entregar el enlace/código requiere email (Resend o SendGrid, plan gratis → API key en env de Render).
 - **Approach:** migración `password_reset_tokens` (token hasheado + expiración ~30 min); `POST /api/auth/forgot` (genera token, manda email) y `POST /api/auth/reset` (valida token, cambia hash). Front: enlace "¿Olvidaste tu contraseña?" en `AuthPage.tsx`.
 
-### 2. Códigos de recuperación de passkey  *(autocontenido, se puede ya)*
-- Generar 8–10 códigos de un solo uso, hashear con bcrypt, guardar en tabla `passkey_recovery_codes`. Mostrarlos UNA vez al crear el primer passkey.
-- `POST /api/auth/recovery` (login con un código → consume el código, emite tokens). Front: en `Account.tsx` (mostrar/regenerar) y `AuthPage.tsx` (entrar con código).
+### 2. ~~Códigos de recuperación de passkey~~ ✅ **Hecho** (sin desplegar)
+- 10 códigos de un solo uso (formato `XXXX-XXXX`, alfabeto sin glifos ambiguos), hasheados con bcrypt en `passkey_recovery_codes` (migración `0007`). Se muestran UNA sola vez; regenerar invalida los anteriores.
+- Backend: `recovery.go` → `GET/POST /api/passkeys/recovery-codes` (autenticado) y `POST /api/auth/recovery` (login con código, comparte el bloqueo por intentos de `hardening.go`, key `recovery:<email>`). Tests en `recovery_test.go`.
+- Front: `sections/Account.tsx` (sección "🛟 Códigos de recuperación": estado/generar/regenerar/copiar) y `pages/AuthPage.tsx` (enlace "¿Perdiste tu llave?" → entrar con código). i18n ES/EN agregado.
+- **Pendiente de deploy:** `git push origin main` (la migración `0007` corre sola con `RUN_MIGRATIONS=true`).
 
 ### 3. Verificación de correo al registrarse  *(necesita correo, igual que #1)*
 ### 4. (Opcional) 2FA TOTP como alternativa a passkeys (`github.com/pquerna/otp`).
@@ -58,7 +60,7 @@ Auth (clave + **passkeys/WebAuthn** passwordless) · multimoneda (₡, $ + 15 cr
 
 ## 🧭 Notas de arquitectura (para retomar rápido)
 - **Backend** `backend/internal/api/`: handlers por dominio (`handlers.go`, `auth_handlers.go`, `sinpe.go`, `requests_handlers.go`, `pools_handlers.go`, `billers.go`, `webauthn.go`, `exchange.go`, `kyc_handlers.go`). Rutas en `server.go`. Hardening en `hardening.go`. i18n de errores en `i18n.go` (cabecera `X-Lang`).
-- **Migraciones**: SQL numerado en `backend/internal/db/migrations/` (embebidas, corren con `RUN_MIGRATIONS=true`). Última: `0006_webauthn_flags.sql`. `transactions.kind` es texto libre (`transfer|conversion|request|pool|service|sinpe`).
+- **Migraciones**: SQL numerado en `backend/internal/db/migrations/` (embebidas, corren con `RUN_MIGRATIONS=true`). Última: `0007_passkey_recovery_codes.sql`. `transactions.kind` es texto libre (`transfer|conversion|request|pool|service|sinpe`).
 - **Catálogo de monedas**: `internal/api/currency.go` (backend) espejado en `src/currencies.ts` (front). Montos en unidades menores enteras por moneda (`toMinor`/`majorOf`).
 - **i18n front**: `src/i18n.tsx` (claves ES/EN + selector). El cliente manda `X-Lang`.
 - **Go 1.25** requerido (go-webauthn) → Dockerfile usa `golang:1.25-alpine`. Build local: Go portable en `$env:TEMP\goportable\go`; front `npm run build`. (Docker Desktop local crashea por un bug suyo — no se usa.)

@@ -77,6 +77,10 @@ var errsEN = map[string]string{
 	"sesión inválida":                      "invalid session",
 	"id inválido":                          "invalid id",
 	"credencial inválida":                  "invalid credential",
+
+	"no se pudieron generar los códigos": "couldn't generate the codes",
+	"no se pudieron cargar los códigos":  "couldn't load the codes",
+	"código de recuperación inválido":    "invalid recovery code",
 }
 
 // localizeError returns the message in the writer's language.
