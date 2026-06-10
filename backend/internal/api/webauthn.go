@@ -187,16 +187,6 @@ func (a *App) waParse(token string) (*webauthn.SessionData, error) {
 	return &sd, nil
 }
 
-// waErrDetail surfaces the underlying WebAuthn error (incl. go-webauthn's
-// DevInfo) for debugging. TODO: revert to generic messages once stable.
-func waErrDetail(err error) string {
-	var pe *protocol.Error
-	if errors.As(err, &pe) {
-		return pe.Type + " | " + pe.Details + " | " + pe.DevInfo
-	}
-	return err.Error()
-}
-
 // --- registration (enroll a passkey while logged in) ---
 
 func (a *App) handlePasskeyRegisterBegin(w http.ResponseWriter, r *http.Request) {
@@ -261,12 +251,12 @@ func (a *App) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Request
 	}
 	parsed, err := protocol.ParseCredentialCreationResponseBody(bytes.NewReader(req.Credential))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "credencial inválida: "+waErrDetail(err))
+		writeError(w, http.StatusBadRequest, "credencial inválida")
 		return
 	}
 	credential, err := a.wa.CreateCredential(user, *session, parsed)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "no se pudo registrar la llave: "+waErrDetail(err))
+		writeError(w, http.StatusBadRequest, "no se pudo registrar la llave")
 		return
 	}
 
@@ -359,12 +349,12 @@ func (a *App) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 	parsed, err := protocol.ParseCredentialRequestResponseBody(bytes.NewReader(req.Credential))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "credencial inválida: "+waErrDetail(err))
+		writeError(w, http.StatusBadRequest, "credencial inválida")
 		return
 	}
 	credential, err := a.wa.ValidateLogin(user, *session, parsed)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "no se pudo verificar: "+waErrDetail(err))
+		writeError(w, http.StatusUnauthorized, "no se pudo verificar la llave de acceso")
 		return
 	}
 

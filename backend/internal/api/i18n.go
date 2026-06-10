@@ -66,8 +66,10 @@ var errsEN = map[string]string{
 	"servicio no válido":           "invalid service",
 	"la referencia es obligatoria": "the reference is required",
 
-	"passkeys no disponibles":              "passkeys unavailable",
-	"esta cuenta no tiene llave de acceso": "this account has no passkey",
+	"passkeys no disponibles":               "passkeys unavailable",
+	"esta cuenta no tiene llave de acceso":  "this account has no passkey",
+	"no se pudo verificar la llave de acceso": "couldn't verify the passkey",
+	"no se pudo registrar la llave":          "couldn't register the passkey",
 	"no encontramos esa cuenta":            "we couldn't find that account",
 	"sesión inválida o expirada":           "session invalid or expired",
 	"sesión inválida":                      "invalid session",
