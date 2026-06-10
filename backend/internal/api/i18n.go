@@ -39,6 +39,7 @@ var errsEN = map[string]string{
 	"el monto debe ser mayor a cero": "amount must be greater than zero",
 
 	"saldo insuficiente":                                  "insufficient balance",
+	"ingresá un número de teléfono de 8 dígitos":          "enter an 8-digit phone number",
 	"destinatario no encontrado":                          "recipient not found",
 	"no podés enviarte dinero a vos mismo":                "you can't send money to yourself",
 	"no se pudo completar la operación":                   "the operation couldn't be completed",

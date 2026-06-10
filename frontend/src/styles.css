@@ -894,6 +894,68 @@ select:focus {
   margin-bottom: 6px;
 }
 
+/* --- SINPE Móvil --- */
+.sinpe-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.sinpe-logo {
+  background: #008f87;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  padding: 4px 9px;
+  border-radius: 7px;
+}
+.btn-sinpe {
+  background: #008f87;
+}
+.btn-sinpe:hover {
+  background: #00756e;
+}
+.sinpe-receipt {
+  text-align: center;
+}
+.sinpe-check {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #008f87;
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  margin: 8px auto 14px;
+}
+.sinpe-amount {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+.sinpe-ref {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 16px 0;
+}
+.sinpe-ref span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.sinpe-ref strong {
+  font-family: 'Courier New', monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+}
+
 /* --- language toggle --- */
 .card-top {
   display: flex;

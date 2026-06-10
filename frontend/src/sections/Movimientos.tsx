@@ -30,6 +30,7 @@ export function Movimientos({ version }: { version: number }) {
     if (tx.kind === 'pool') return t('mov.vaquita')
     if (tx.kind === 'request') return t('mov.cobro')
     if (tx.kind === 'service') return t('mov.servicio')
+    if (tx.kind === 'sinpe') return t('mov.sinpe')
     if (tx.description) return tx.description
     return tx.direction === 'in' ? t('mov.received') : t('mov.sent')
   }

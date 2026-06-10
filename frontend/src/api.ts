@@ -51,7 +51,7 @@ export interface Transaction {
   currency: Currency
   description: string
   status: string
-  kind: 'transfer' | 'conversion' | 'request' | 'pool' | 'service'
+  kind: 'transfer' | 'conversion' | 'request' | 'pool' | 'service' | 'sinpe'
   createdAt: string
 }
 
@@ -192,6 +192,12 @@ export const api = {
   },
   send(input: { to: string; amount: number; currency: Currency; description: string }) {
     return request<{ id: string; newBalance: number }>('/api/transactions', { method: 'POST', body: body(input) })
+  },
+  sinpe(input: { toPhone: string; amount: number; description: string }) {
+    return request<{ comprobante: string; recipientName: string; amountCents: number; at: string }>('/api/sinpe', {
+      method: 'POST',
+      body: body(input),
+    })
   },
   convert(input: { from: Currency; to: Currency; amount: number }) {
     return request<{ fromCents: number; toCents: number; rate: ExchangeRate }>('/api/convert', {

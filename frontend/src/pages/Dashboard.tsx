@@ -8,6 +8,7 @@ import { LangToggle } from '../components/LangToggle'
 import { CRYPTO, FIAT, metaOf } from '../currencies'
 import { formatMoney } from '../format'
 import { Movimientos } from '../sections/Movimientos'
+import { Sinpe } from '../sections/Sinpe'
 import { Convertir } from '../sections/Convertir'
 import { SendMoney } from '../sections/SendMoney'
 import { Cobros } from '../sections/Cobros'
@@ -15,10 +16,11 @@ import { Servicios } from '../sections/Servicios'
 import { Vaquitas } from '../sections/Vaquitas'
 import { Account as AccountTab } from '../sections/Account'
 
-type Tab = 'inicio' | 'convertir' | 'enviar' | 'cobrar' | 'servicios' | 'vaquitas' | 'cuenta'
+type Tab = 'inicio' | 'sinpe' | 'convertir' | 'enviar' | 'cobrar' | 'servicios' | 'vaquitas' | 'cuenta'
 
 const TABS: { id: Tab; icon: string }[] = [
   { id: 'inicio', icon: '🏠' },
+  { id: 'sinpe', icon: '📲' },
   { id: 'convertir', icon: '🔄' },
   { id: 'enviar', icon: '💸' },
   { id: 'cobrar', icon: '🧾' },
@@ -165,6 +167,7 @@ export function Dashboard() {
           </>
         )}
 
+        {tab === 'sinpe' && <Sinpe reload={reload} />}
         {tab === 'convertir' && <Convertir reload={reload} />}
         {tab === 'enviar' && <SendMoney reload={reload} />}
         {tab === 'cobrar' && <Cobros version={version} reload={reload} />}

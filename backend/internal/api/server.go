@@ -71,6 +71,7 @@ func (a *App) Router() http.Handler {
 			r.Get("/me", a.handleMe)
 			r.Get("/transactions", a.handleListTransactions)
 			r.Post("/transactions", a.handleSendMoney)
+			r.Post("/sinpe", a.handleSinpe)
 			r.Post("/convert", a.handleConvert)
 			r.Post("/kyc", a.handleSubmitKYC)
 
