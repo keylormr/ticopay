@@ -18,6 +18,8 @@ var currencyList = []CurrencyInfo{
 	// Fiat
 	{Code: "CRC", Type: "fiat", Decimals: 2, Symbol: "₡", Name: "Colón"},
 	{Code: "USD", Type: "fiat", Decimals: 2, Symbol: "$", Name: "Dólar"},
+	{Code: "EUR", Type: "fiat", Decimals: 2, Symbol: "€", Name: "Euro"},
+	{Code: "MXN", Type: "fiat", Decimals: 2, Symbol: "MX$", Name: "Peso mexicano"},
 	// Crypto
 	{Code: "BTC", Type: "crypto", Decimals: 8, Symbol: "₿", Name: "Bitcoin", CoinGeckoID: "bitcoin"},
 	{Code: "ETH", Type: "crypto", Decimals: 8, Symbol: "Ξ", Name: "Ethereum", CoinGeckoID: "ethereum"},
@@ -72,6 +74,18 @@ func allCurrencyCodes() []string {
 	codes := make([]string, len(currencyList))
 	for i, c := range currencyList {
 		codes[i] = c.Code
+	}
+	return codes
+}
+
+// extraFiatCodes returns the fiat currencies that need an external FX feed
+// (everything except USD, the base, and CRC, sourced from BCCR/Hacienda).
+func extraFiatCodes() []string {
+	codes := []string{}
+	for _, c := range currencyList {
+		if c.Type == "fiat" && c.Code != "USD" && c.Code != "CRC" {
+			codes = append(codes, c.Code)
+		}
 	}
 	return codes
 }

@@ -40,6 +40,11 @@ var (
 		"SOL": 150, "XRP": 0.5, "ADA": 0.4, "DOGE": 0.1, "TRX": 0.12,
 		"DOT": 4, "LTC": 80, "LINK": 12, "AVAX": 25, "MATIC": 0.5,
 	}
+	// Approximate USD value of 1 unit of each non-USD/CRC fiat, used only when
+	// frankfurter.app is unreachable and we have no cached value.
+	fiatFallback = map[string]float64{
+		"EUR": 1.08, "MXN": 0.055,
+	}
 )
 
 type ratesCache struct {
@@ -78,6 +83,18 @@ func (a *App) getRates(ctx context.Context) Rates {
 			crypto = cloneFloatMap(cryptoFallback)
 		}
 	}
+	// USD-per-unit for non-USD/CRC fiat (EUR, MXN…) via frankfurter.app.
+	fiat, err := fetchFiatRates(ctx)
+	if err != nil {
+		fiat = map[string]float64{}
+		for code, fb := range fiatFallback {
+			if prev.UsdPerUnit[code] > 0 {
+				fiat[code] = prev.UsdPerUnit[code] // serve last good rate
+			} else {
+				fiat[code] = fb
+			}
+		}
+	}
 
 	usdPerUnit := map[string]float64{}
 	for _, c := range currencyList {
@@ -87,6 +104,12 @@ func (a *App) getRates(ctx context.Context) Rates {
 		case c.Code == "CRC":
 			if crc.Sell > 0 {
 				usdPerUnit[c.Code] = 1 / crc.Sell
+			}
+		case c.Type == "fiat":
+			if v, ok := fiat[c.Code]; ok && v > 0 {
+				usdPerUnit[c.Code] = v
+			} else if fb, ok := fiatFallback[c.Code]; ok {
+				usdPerUnit[c.Code] = fb
 			}
 		case c.Type == "crypto":
 			if p, ok := crypto[c.Code]; ok && p > 0 {
@@ -189,6 +212,46 @@ func fetchCryptoPrices(ctx context.Context) (map[string]float64, error) {
 		return nil, errInvalidRate
 	}
 	return prices, nil
+}
+
+// fetchFiatRates returns the USD value of 1 unit of each non-USD/CRC fiat
+// currency (e.g. EUR, MXN), sourced from the free frankfurter.app feed.
+func fetchFiatRates(ctx context.Context) (map[string]float64, error) {
+	codes := extraFiatCodes()
+	if len(codes) == 0 {
+		return map[string]float64{}, nil
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, 6*time.Second)
+	defer cancel()
+	endpoint := "https://api.frankfurter.app/latest?base=USD&symbols=" +
+		url.QueryEscape(strings.Join(codes, ","))
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		Rates map[string]float64 `json:"rates"` // units of each currency per 1 USD
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, err
+	}
+	out := map[string]float64{}
+	for code, perUSD := range body.Rates {
+		if perUSD > 0 {
+			out[code] = 1 / perUSD // invert to USD value of 1 unit
+		}
+	}
+	if len(out) == 0 {
+		return nil, errInvalidRate
+	}
+	return out, nil
 }
 
 func cloneFloatMap(m map[string]float64) map[string]float64 {

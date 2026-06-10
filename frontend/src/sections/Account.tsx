@@ -78,6 +78,7 @@ export function Account() {
 function Passkeys() {
   const { t } = useI18n()
   const [list, setList] = useState<{ id: string; name: string; createdAt: string }[]>([])
+  const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
@@ -98,7 +99,12 @@ function Passkeys() {
       const begin = await api.passkeyRegisterBegin()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const credential = await startRegistration({ optionsJSON: begin.publicKey as any })
-      await api.passkeyRegisterFinish({ sessionToken: begin.sessionToken, credential, name: 'Mi dispositivo' })
+      await api.passkeyRegisterFinish({
+        sessionToken: begin.sessionToken,
+        credential,
+        name: name.trim() || t('pk.name.default'),
+      })
+      setName('')
       setOk(t('pk.ok'))
       load()
     } catch (err) {
@@ -142,6 +148,17 @@ function Passkeys() {
           ))}
         </ul>
       )}
+
+      <label htmlFor="pkName" style={{ marginTop: 4 }}>
+        {t('pk.name.label')}
+      </label>
+      <input
+        id="pkName"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder={t('pk.name.ph')}
+        maxLength={40}
+      />
 
       {error && <div className="error">{error}</div>}
       {ok && <div className="ok">{ok}</div>}

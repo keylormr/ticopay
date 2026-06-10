@@ -3,6 +3,8 @@ const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replac
 export type Currency =
   | 'CRC'
   | 'USD'
+  | 'EUR'
+  | 'MXN'
   | 'BTC'
   | 'ETH'
   | 'USDT'

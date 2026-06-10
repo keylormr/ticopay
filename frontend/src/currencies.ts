@@ -13,6 +13,8 @@ export const CURRENCIES: CurrencyMeta[] = [
   // Fiat
   { code: 'CRC', type: 'fiat', decimals: 2, symbol: '₡', name: 'Colón', color: '#002b7f' },
   { code: 'USD', type: 'fiat', decimals: 2, symbol: '$', name: 'Dólar', color: '#15803d' },
+  { code: 'EUR', type: 'fiat', decimals: 2, symbol: '€', name: 'Euro', color: '#0e4c92' },
+  { code: 'MXN', type: 'fiat', decimals: 2, symbol: 'MX$', name: 'Peso mexicano', color: '#006847' },
   // Crypto
   { code: 'BTC', type: 'crypto', decimals: 8, symbol: '₿', name: 'Bitcoin', color: '#f7931a' },
   { code: 'ETH', type: 'crypto', decimals: 8, symbol: 'Ξ', name: 'Ethereum', color: '#627eea' },

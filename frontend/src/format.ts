@@ -4,6 +4,8 @@ import { metaOf } from './currencies'
 const fiatFmt: Partial<Record<Currency, Intl.NumberFormat>> = {
   CRC: new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'CRC', minimumFractionDigits: 2 }),
   USD: new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }),
+  EUR: new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }),
+  MXN: new Intl.NumberFormat('es-CR', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 }),
 }
 
 /** Format integer minor units in the given currency (fiat or crypto). */
