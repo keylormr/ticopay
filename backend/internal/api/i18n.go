@@ -82,6 +82,11 @@ var errsEN = map[string]string{
 	"no se pudieron cargar los códigos":  "couldn't load the codes",
 	"código de recuperación inválido":    "invalid recovery code",
 
+	"no se pudo configurar el 2FA": "couldn't set up 2FA",
+	"primero configurá el 2FA":     "set up 2FA first",
+	"código 2FA inválido":          "invalid 2FA code",
+	"se requiere el código 2FA":    "2FA code required",
+
 	"aporte enviado pero no registrado": "contribution sent but not recorded",
 }
 

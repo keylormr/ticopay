@@ -1049,6 +1049,17 @@ select:focus {
   color: var(--muted);
 }
 
+/* TOTP 2FA */
+.totp-qr {
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 10px 0;
+}
+
 /* Recovery codes */
 .rc-grid {
   display: grid;

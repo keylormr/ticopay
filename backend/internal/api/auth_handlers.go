@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/pquerna/otp/totp"
 
 	"ticopay/backend/internal/auth"
 	"ticopay/backend/internal/models"
@@ -119,6 +120,7 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
+		TotpCode string `json:"totpCode"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "solicitud inválida")
@@ -149,6 +151,26 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "database error")
 		return
+	}
+
+	// Second factor: with TOTP confirmed, the password alone isn't enough.
+	// 428 tells the client to ask for a code; a wrong code counts as a
+	// failed attempt so codes can't be brute-forced within the window.
+	enabled, secret, err := a.totpEnabled(ctx, u.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "database error")
+		return
+	}
+	if enabled {
+		if normalizeTotpCode(req.TotpCode) == "" {
+			writeError(w, http.StatusPreconditionRequired, "se requiere el código 2FA")
+			return
+		}
+		if !totp.Validate(normalizeTotpCode(req.TotpCode), secret) {
+			loginAttempts.fail(req.Email)
+			writeError(w, http.StatusUnauthorized, "código 2FA inválido")
+			return
+		}
 	}
 
 	accounts, err := a.fetchAccounts(ctx, u.ID)

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { startRegistration } from '@simplewebauthn/browser'
+import { QRCodeSVG } from 'qrcode.react'
 import { ApiError, api } from '../api'
 import { useAuth } from '../auth'
 import { useI18n } from '../i18n'
@@ -70,8 +71,135 @@ export function Account() {
       </section>
 
       <Passkeys />
+      <Totp />
       <RecoveryCodes />
     </>
+  )
+}
+
+function Totp() {
+  const { t } = useI18n()
+  const [enabled, setEnabled] = useState<boolean | null>(null)
+  const [setup, setSetup] = useState<{ secret: string; otpauthUrl: string } | null>(null)
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [ok, setOk] = useState('')
+
+  function load() {
+    api
+      .totpStatus()
+      .then((r) => setEnabled(r.enabled))
+      .catch(() => {})
+  }
+  useEffect(load, [])
+
+  async function begin() {
+    setError('')
+    setOk('')
+    setBusy(true)
+    try {
+      setSetup(await api.totpSetup())
+      setCode('')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('totp.err'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function confirm(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+    setBusy(true)
+    try {
+      await api.totpConfirm(code)
+      setSetup(null)
+      setCode('')
+      setEnabled(true)
+      setOk(t('totp.ok.on'))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('totp.err'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function disable(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+    setBusy(true)
+    try {
+      await api.totpDisable(code)
+      setCode('')
+      setEnabled(false)
+      setOk(t('totp.ok.off'))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('totp.err'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="panel narrow" style={{ marginTop: 18 }}>
+      <h2>{t('totp.title')}</h2>
+      <p className="sub">{t('totp.sub')}</p>
+
+      {setup ? (
+        <form onSubmit={confirm}>
+          <p className="sub">{t('totp.scan')}</p>
+          <div className="totp-qr">
+            <QRCodeSVG value={setup.otpauthUrl} size={168} bgColor="#ffffff" fgColor="#002b7f" level="M" />
+          </div>
+          <p className="sub">
+            {t('totp.manual')} <code className="rc-code">{setup.secret}</code>
+          </p>
+          <label htmlFor="totpConfirm">{t('totp.code')}</label>
+          <input
+            id="totpConfirm"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="123 456"
+            required
+          />
+          {error && <div className="error">{error}</div>}
+          <button className="btn" type="submit" disabled={busy}>
+            {busy ? t('totp.busy') : t('totp.confirm')}
+          </button>
+        </form>
+      ) : enabled ? (
+        <form onSubmit={disable}>
+          <div className="ok">{t('totp.enabled')}</div>
+          <label htmlFor="totpDisable">{t('totp.code')}</label>
+          <input
+            id="totpDisable"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="123 456"
+            required
+          />
+          {error && <div className="error">{error}</div>}
+          {ok && <div className="ok">{ok}</div>}
+          <button className="btn-ghost" type="submit" disabled={busy}>
+            {busy ? t('totp.busy') : t('totp.disable')}
+          </button>
+        </form>
+      ) : (
+        <>
+          <div className="empty">{t('totp.disabled')}</div>
+          {error && <div className="error">{error}</div>}
+          {ok && <div className="ok">{ok}</div>}
+          <button className="btn" onClick={begin} disabled={busy || enabled === null}>
+            {busy ? t('totp.busy') : t('totp.enable')}
+          </button>
+        </>
+      )}
+    </section>
   )
 }
 

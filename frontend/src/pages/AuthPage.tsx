@@ -18,6 +18,8 @@ export function AuthPage() {
   const [busy, setBusy] = useState(false)
   const [showRecovery, setShowRecovery] = useState(false)
   const [recoveryCode, setRecoveryCode] = useState('')
+  const [totpRequired, setTotpRequired] = useState(false)
+  const [totpCode, setTotpCode] = useState('')
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -25,12 +27,17 @@ export function AuthPage() {
     setBusy(true)
     try {
       if (mode === 'login') {
-        await login(email, password)
+        await login(email, password, totpCode || undefined)
       } else {
         await register({ email, password, fullName, phone: phone || undefined })
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('auth.err.connect'))
+      // 428: the account has 2FA on and the server wants a code.
+      if (err instanceof ApiError && err.status === 428) {
+        setTotpRequired(true)
+      } else {
+        setError(err instanceof ApiError ? err.message : t('auth.err.connect'))
+      }
     } finally {
       setBusy(false)
     }
@@ -120,6 +127,21 @@ export function AuthPage() {
           required
         />
 
+        {totpRequired && mode === 'login' && (
+          <>
+            <label htmlFor="totpCode">{t('auth.totp.label')}</label>
+            <input
+              id="totpCode"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value)}
+              placeholder="123 456"
+              autoFocus
+            />
+          </>
+        )}
+
         {error && <div className="error">{error}</div>}
 
         <button className="btn" type="submit" disabled={busy}>
@@ -164,6 +186,8 @@ export function AuthPage() {
             onClick={() => {
               setMode(mode === 'login' ? 'register' : 'login')
               setError('')
+              setTotpRequired(false)
+              setTotpCode('')
             }}
           >
             {mode === 'login' ? t('auth.switch.register') : t('auth.switch.login')}

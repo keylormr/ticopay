@@ -181,8 +181,8 @@ export const api = {
   register(input: { email: string; password: string; fullName: string; phone?: string }) {
     return request<AuthResult>('/api/auth/register', { method: 'POST', body: body(input) }, false)
   },
-  login(email: string, password: string) {
-    return request<AuthResult>('/api/auth/login', { method: 'POST', body: body({ email, password }) }, false)
+  login(email: string, password: string, totpCode?: string) {
+    return request<AuthResult>('/api/auth/login', { method: 'POST', body: body({ email, password, totpCode }) }, false)
   },
   me() {
     return request<{ user: User; accounts: Account[] }>('/api/me')
@@ -288,6 +288,20 @@ export const api = {
   },
   recoveryLogin(email: string, code: string) {
     return request<AuthResult>('/api/auth/recovery', { method: 'POST', body: body({ email, code }) }, false)
+  },
+
+  // --- TOTP 2FA (authenticator app) ---
+  totpStatus() {
+    return request<{ enabled: boolean }>('/api/totp')
+  },
+  totpSetup() {
+    return request<{ secret: string; otpauthUrl: string }>('/api/totp/setup', { method: 'POST', body: '{}' })
+  },
+  totpConfirm(code: string) {
+    return request<{ status: string }>('/api/totp/confirm', { method: 'POST', body: body({ code }) })
+  },
+  totpDisable(code: string) {
+    return request<{ status: string }>('/api/totp/disable', { method: 'POST', body: body({ code }) })
   },
 
   // --- service / utility payments ---

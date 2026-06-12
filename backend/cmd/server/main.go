@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,21 +18,25 @@ import (
 func main() {
 	cfg := config.Load()
 	ctx := context.Background()
+	logger := api.Logger
 
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("database: %v", err)
+		logger.Error("database connect failed", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
 
 	if cfg.RunMigrations {
 		if err := db.Migrate(ctx, pool); err != nil {
-			log.Fatalf("migrate: %v", err)
+			logger.Error("migrate failed", "error", err)
+			os.Exit(1)
 		}
 	}
 	if cfg.SeedDemo {
 		if err := seed.Run(ctx, pool); err != nil {
-			log.Fatalf("seed: %v", err)
+			logger.Error("seed failed", "error", err)
+			os.Exit(1)
 		}
 	}
 
@@ -45,9 +48,10 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("Tico Pay API listening on :%s", cfg.Port)
+		logger.Info("Tico Pay API listening", "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server: %v", err)
+			logger.Error("server failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -55,10 +59,10 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
-	log.Println("shutting down...")
+	logger.Info("shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("shutdown error: %v", err)
+		logger.Error("shutdown error", "error", err)
 	}
 }

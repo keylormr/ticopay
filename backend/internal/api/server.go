@@ -37,7 +37,7 @@ func (a *App) Router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	r.Use(slogRequests)
 	r.Use(middleware.Recoverer)
 
 	r.Use(cors.Handler(cors.Options{
@@ -109,6 +109,12 @@ func (a *App) Router() http.Handler {
 			// One-time recovery codes (fallback when all passkeys are lost).
 			r.Get("/passkeys/recovery-codes", a.handleRecoveryStatus)
 			r.Post("/passkeys/recovery-codes", a.handleGenerateRecoveryCodes)
+
+			// TOTP 2FA (authenticator app).
+			r.Get("/totp", a.handleTotpStatus)
+			r.Post("/totp/setup", a.handleTotpSetup)
+			r.Post("/totp/confirm", a.handleTotpConfirm)
+			r.Post("/totp/disable", a.handleTotpDisable)
 		})
 	})
 

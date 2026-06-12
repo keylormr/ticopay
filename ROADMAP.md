@@ -29,7 +29,9 @@ Auth (clave + **passkeys/WebAuthn** passwordless + **códigos de recuperación**
 - Verificado E2E contra prod: generar → entrar con código → el código se consume (reuso da 401, `remaining` baja). ✓
 
 ### 3. Verificación de correo al registrarse  *(necesita correo, igual que #1)*
-### 4. (Opcional) 2FA TOTP como alternativa a passkeys (`github.com/pquerna/otp`).
+### 4. ~~2FA TOTP como alternativa a passkeys~~ ✅ **Hecho**
+- Migración `0009_totp.sql` (tabla `user_totp`: secreto por usuario, gate solo si `confirmed`). Backend `totp.go`: `GET /api/totp` (estado), `POST /api/totp/setup` (secreto + otpauth URL), `/confirm` (valida 1er código y activa), `/disable` (pide código válido). Login: con 2FA activo responde **428** si falta `totpCode`; código malo cuenta para el lockout.
+- Front: sección "📱 Verificación en dos pasos" en `Account.tsx` (QR con `qrcode.react` + clave manual + confirmar/desactivar); `AuthPage.tsx` muestra campo de código al recibir 428. i18n ES/EN.
 
 ---
 
@@ -51,8 +53,8 @@ Auth (clave + **passkeys/WebAuthn** passwordless + **códigos de recuperación**
 ---
 
 ## ⚙️ Infra / calidad
-- **Tests automatizados** (Go `testing`/`httptest`; front `vitest`).
-- **Observabilidad**: logging estructurado, métricas, alertas.
+- ✅ ~~**Tests automatizados**~~ — Go: `currency_test.go`, `i18n_test.go`, `hardening_test.go`, `recovery_test.go`, `totp_test.go` (lógica pura, sin DB; `go test ./...`). Front: `vitest` (`npm test`, `format.test.ts`). *Falta: tests de handlers con DB (necesitarían Postgres local o testcontainers).*
+- ✅ ~~**Logging estructurado**~~ — `logging.go`: middleware `slogRequests` (JSON por request: método, ruta, status, duración, IP, request id; nivel según status) + `api.Logger` (slog) en `main.go`. *Falta: métricas y alertas.*
 - **KYC real** (validación contra TSE / Registro Nacional; hoy auto-aprueba el formato).
 - **Rate-limiting distribuido** (Upstash) si se escala a >1 instancia (hoy es en memoria, ok para 1 instancia de Render free).
 
@@ -60,7 +62,7 @@ Auth (clave + **passkeys/WebAuthn** passwordless + **códigos de recuperación**
 
 ## 🧭 Notas de arquitectura (para retomar rápido)
 - **Backend** `backend/internal/api/`: handlers por dominio (`handlers.go`, `auth_handlers.go`, `sinpe.go`, `requests_handlers.go`, `pools_handlers.go`, `billers.go`, `webauthn.go`, `exchange.go`, `kyc_handlers.go`). Rutas en `server.go`. Hardening en `hardening.go`. i18n de errores en `i18n.go` (cabecera `X-Lang`).
-- **Migraciones**: SQL numerado en `backend/internal/db/migrations/` (embebidas, corren con `RUN_MIGRATIONS=true`). Última: `0008_more_fiat.sql`. `transactions.kind` es texto libre (`transfer|conversion|request|pool|service|sinpe`).
+- **Migraciones**: SQL numerado en `backend/internal/db/migrations/` (embebidas, corren con `RUN_MIGRATIONS=true`). Última: `0009_totp.sql`. `transactions.kind` es texto libre (`transfer|conversion|request|pool|service|sinpe`).
 - **Catálogo de monedas**: `internal/api/currency.go` (backend) espejado en `src/currencies.ts` (front). Montos en unidades menores enteras por moneda (`toMinor`/`majorOf`).
 - **i18n front**: `src/i18n.tsx` (claves ES/EN + selector). El cliente manda `X-Lang`.
 - **Go 1.25** requerido (go-webauthn) → Dockerfile usa `golang:1.25-alpine`. Build local: Go portable en `$env:TEMP\goportable\go`; front `npm run build`. (Docker Desktop local crashea por un bug suyo — no se usa.)

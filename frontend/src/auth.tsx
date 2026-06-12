@@ -5,7 +5,7 @@ interface AuthState {
   user: User | null
   accounts: Account[]
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, totpCode?: string) => Promise<void>
   register: (input: { email: string; password: string; fullName: string; phone?: string }) => Promise<void>
   applyAuth: (res: AuthResult) => void
   logout: () => void
@@ -36,8 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
-  async function login(email: string, password: string) {
-    const res = await api.login(email, password)
+  async function login(email: string, password: string, totpCode?: string) {
+    const res = await api.login(email, password, totpCode)
     tokens.set(res.accessToken, res.refreshToken)
     setUser(res.user)
     setAccounts(res.accounts)
