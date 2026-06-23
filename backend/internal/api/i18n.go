@@ -87,6 +87,9 @@ var errsEN = map[string]string{
 	"código 2FA inválido":          "invalid 2FA code",
 	"se requiere el código 2FA":    "2FA code required",
 
+	"enlace inválido o expirado":   "invalid or expired link",
+	"no se pudo cargar el usuario": "couldn't load the user",
+
 	"aporte enviado pero no registrado": "contribution sent but not recorded",
 }
 

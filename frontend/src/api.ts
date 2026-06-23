@@ -36,6 +36,7 @@ export interface User {
   kycStatus: 'none' | 'verified'
   idType?: string
   idNumber?: string
+  emailVerified: boolean
   createdAt: string
 }
 
@@ -186,6 +187,18 @@ export const api = {
   },
   me() {
     return request<{ user: User; accounts: Account[] }>('/api/me')
+  },
+  forgotPassword(email: string) {
+    return request<{ status: string }>('/api/auth/forgot', { method: 'POST', body: body({ email }) }, false)
+  },
+  resetPassword(token: string, password: string) {
+    return request<{ status: string }>('/api/auth/reset', { method: 'POST', body: body({ token, password }) }, false)
+  },
+  verifyEmail(token: string) {
+    return request<{ status: string }>('/api/auth/verify-email', { method: 'POST', body: body({ token }) }, false)
+  },
+  resendVerification() {
+    return request<{ status: string }>('/api/auth/verify-email/send', { method: 'POST', body: '{}' })
   },
 
   // --- money ---

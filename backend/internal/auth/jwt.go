@@ -17,6 +17,10 @@ const (
 type Claims struct {
 	UserID string    `json:"uid"`
 	Type   TokenType `json:"typ"`
+	// Ver mirrors users.token_version at issue time. A password reset bumps the
+	// column, so every previously-issued token becomes stale (see requireAuth /
+	// handleRefresh). Absent in legacy tokens → 0, matching the column default.
+	Ver int `json:"ver"`
 	jwt.RegisteredClaims
 }
 
@@ -31,10 +35,11 @@ func NewManager(secret string, accessTTL, refreshTTL time.Duration) *Manager {
 	return &Manager{secret: []byte(secret), accessTTL: accessTTL, refreshTTL: refreshTTL}
 }
 
-func (m *Manager) issue(userID string, typ TokenType, ttl time.Duration, now time.Time) (string, error) {
+func (m *Manager) issue(userID string, typ TokenType, ttl time.Duration, now time.Time, ver int) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		Type:   typ,
+		Ver:    ver,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -44,14 +49,15 @@ func (m *Manager) issue(userID string, typ TokenType, ttl time.Duration, now tim
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(m.secret)
 }
 
-// Issue returns a fresh (access, refresh) token pair for the user.
-func (m *Manager) Issue(userID string) (access, refresh string, err error) {
+// Issue returns a fresh (access, refresh) token pair for the user, stamped with
+// the user's current token version (for revocation on credential change).
+func (m *Manager) Issue(userID string, ver int) (access, refresh string, err error) {
 	now := time.Now()
-	access, err = m.issue(userID, AccessToken, m.accessTTL, now)
+	access, err = m.issue(userID, AccessToken, m.accessTTL, now, ver)
 	if err != nil {
 		return "", "", err
 	}
-	refresh, err = m.issue(userID, RefreshToken, m.refreshTTL, now)
+	refresh, err = m.issue(userID, RefreshToken, m.refreshTTL, now, ver)
 	if err != nil {
 		return "", "", err
 	}

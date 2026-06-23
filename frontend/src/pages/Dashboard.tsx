@@ -97,6 +97,7 @@ export function Dashboard() {
       </nav>
 
       <main className="container">
+        {user && !user.emailVerified && <VerifyBanner />}
         {tab === 'inicio' && (
           <>
             <section className="hero">
@@ -176,5 +177,36 @@ export function Dashboard() {
         {tab === 'cuenta' && <AccountTab />}
       </main>
     </>
+  )
+}
+
+function VerifyBanner() {
+  const { t } = useI18n()
+  const [sent, setSent] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function resend() {
+    setBusy(true)
+    try {
+      await api.resendVerification()
+      setSent(true)
+    } catch {
+      /* ignore — banner is best-effort */
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="verify-banner">
+      <span>📧 {t('verify.banner')}</span>
+      {sent ? (
+        <span className="verify-sent">{t('verify.banner.sent')}</span>
+      ) : (
+        <button className="link-btn" onClick={resend} disabled={busy}>
+          {busy ? t('auth.processing') : t('verify.banner.resend')}
+        </button>
+      )}
+    </div>
   )
 }

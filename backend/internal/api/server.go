@@ -14,13 +14,16 @@ import (
 
 	"ticopay/backend/internal/auth"
 	"ticopay/backend/internal/config"
+	"ticopay/backend/internal/email"
 )
 
 type App struct {
-	pool *pgxpool.Pool
-	jwt  *auth.Manager
-	cfg  config.Config
-	wa   *webauthn.WebAuthn
+	pool         *pgxpool.Pool
+	jwt          *auth.Manager
+	cfg          config.Config
+	wa           *webauthn.WebAuthn
+	mailer       email.Sender
+	emailEnabled bool
 }
 
 func NewApp(pool *pgxpool.Pool, cfg config.Config) *App {
@@ -30,6 +33,8 @@ func NewApp(pool *pgxpool.Pool, cfg config.Config) *App {
 		cfg:  cfg,
 	}
 	app.wa = newWebAuthn(cfg)
+	app.mailer, app.emailEnabled = email.New(
+		email.Config{APIKey: cfg.ResendAPIKey, From: cfg.ResendFrom, Debug: cfg.EmailDebug}, Logger)
 	return app
 }
 
@@ -69,6 +74,9 @@ func (a *App) Router() http.Handler {
 			r.Post("/auth/passkey/begin", a.handlePasskeyLoginBegin)
 			r.Post("/auth/passkey/finish", a.handlePasskeyLoginFinish)
 			r.Post("/auth/recovery", a.handleRecoveryLogin)
+			r.Post("/auth/forgot", a.handleForgotPassword)
+			r.Post("/auth/reset", a.handleResetPassword)
+			r.Post("/auth/verify-email", a.handleVerifyEmail)
 		})
 
 		r.Post("/auth/refresh", a.handleRefresh)
@@ -109,6 +117,9 @@ func (a *App) Router() http.Handler {
 			// One-time recovery codes (fallback when all passkeys are lost).
 			r.Get("/passkeys/recovery-codes", a.handleRecoveryStatus)
 			r.Post("/passkeys/recovery-codes", a.handleGenerateRecoveryCodes)
+
+			// Resend the email-verification link to the current user.
+			r.Post("/auth/verify-email/send", a.handleResendVerification)
 
 			// TOTP 2FA (authenticator app).
 			r.Get("/totp", a.handleTotpStatus)

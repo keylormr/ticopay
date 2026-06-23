@@ -48,8 +48,8 @@ func Run(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, du := range demoUsers {
 		var userID string
 		if err := pool.QueryRow(ctx,
-			`INSERT INTO users (email, phone, full_name, password_hash, kyc_status)
-			 VALUES ($1, $2, $3, $4, 'verified') RETURNING id`,
+			`INSERT INTO users (email, phone, full_name, password_hash, kyc_status, email_verified)
+			 VALUES ($1, $2, $3, $4, 'verified', true) RETURNING id`,
 			du.email, du.phone, du.fullName, hash,
 		).Scan(&userID); err != nil {
 			return fmt.Errorf("seed user %s: %w", du.email, err)

@@ -3,14 +3,15 @@ package models
 import "time"
 
 type User struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	Phone     string    `json:"phone,omitempty"`
-	FullName  string    `json:"fullName"`
-	KYCStatus string    `json:"kycStatus"` // none | verified
-	IDType    string    `json:"idType,omitempty"`
-	IDNumber  string    `json:"idNumber,omitempty"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID            string    `json:"id"`
+	Email         string    `json:"email"`
+	Phone         string    `json:"phone,omitempty"`
+	FullName      string    `json:"fullName"`
+	KYCStatus     string    `json:"kycStatus"` // none | verified
+	IDType        string    `json:"idType,omitempty"`
+	IDNumber      string    `json:"idNumber,omitempty"`
+	EmailVerified bool      `json:"emailVerified"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
 type Account struct {

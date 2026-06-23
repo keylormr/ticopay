@@ -15,10 +15,18 @@ func (a *App) fetchUser(ctx context.Context, uid string) (models.User, error) {
 	var u models.User
 	err := a.pool.QueryRow(ctx,
 		`SELECT id, email, COALESCE(phone,''), full_name, kyc_status,
-		        COALESCE(id_type,''), COALESCE(id_number,''), created_at
+		        COALESCE(id_type,''), COALESCE(id_number,''), COALESCE(email_verified,false), created_at
 		 FROM users WHERE id = $1`, uid,
-	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.CreatedAt)
+	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.EmailVerified, &u.CreatedAt)
 	return u, err
+}
+
+// tokenVersion returns the user's current JWT generation. Tokens are stamped
+// with it at issue time and rejected once it changes (see requireAuth).
+func (a *App) tokenVersion(ctx context.Context, uid string) (int, error) {
+	var ver int
+	err := a.pool.QueryRow(ctx, `SELECT token_version FROM users WHERE id = $1`, uid).Scan(&ver)
+	return ver, err
 }
 
 func (a *App) handleMe(w http.ResponseWriter, r *http.Request) {

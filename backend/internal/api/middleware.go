@@ -23,6 +23,13 @@ func (a *App) requireAuth(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "invalid or expired token")
 			return
 		}
+		// Reject tokens whose generation no longer matches the user's (a
+		// password reset bumps token_version, revoking all prior sessions).
+		ver, err := a.tokenVersion(r.Context(), claims.UserID)
+		if err != nil || ver != claims.Ver {
+			writeError(w, http.StatusUnauthorized, "invalid or expired token")
+			return
+		}
 		ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

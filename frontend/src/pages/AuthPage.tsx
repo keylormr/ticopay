@@ -20,9 +20,17 @@ export function AuthPage() {
   const [recoveryCode, setRecoveryCode] = useState('')
   const [totpRequired, setTotpRequired] = useState(false)
   const [totpCode, setTotpCode] = useState('')
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    // While the forgot-password box is open, the form's submit (incl. Enter)
+    // must send the reset link, not attempt a login.
+    if (mode === 'login' && showForgot) {
+      if (!forgotSent) await onForgot(e)
+      return
+    }
     setError('')
     setBusy(true)
     try {
@@ -61,6 +69,25 @@ export function AuthPage() {
       if (err instanceof ApiError) setError(err.message)
       else if (err instanceof Error && /abort|cancel|NotAllowed/i.test(err.name + err.message)) setError(t('auth.err.passkeyCancel'))
       else setError(t('auth.err.passkey'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onForgot(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+    const addr = email.trim().toLowerCase()
+    if (!addr) {
+      setError(t('auth.err.passkeyEmail'))
+      return
+    }
+    setBusy(true)
+    try {
+      await api.forgotPassword(addr)
+      setForgotSent(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('auth.err.connect'))
     } finally {
       setBusy(false)
     }
@@ -127,6 +154,38 @@ export function AuthPage() {
           required
         />
 
+        {mode === 'login' && !showForgot && (
+          <button type="button" className="link-btn link-right" onClick={() => setShowForgot(true)}>
+            {t('auth.forgot.link')}
+          </button>
+        )}
+
+        {mode === 'login' && showForgot && (
+          <div className="forgot-box">
+            {forgotSent ? (
+              <div className="ok">{t('auth.forgot.sent')}</div>
+            ) : (
+              <>
+                <p className="sub">{t('auth.forgot.hint')}</p>
+                <button type="button" className="btn" onClick={onForgot} disabled={busy}>
+                  {busy ? t('auth.processing') : t('auth.forgot.btn')}
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => {
+                setShowForgot(false)
+                setForgotSent(false)
+                setError('')
+              }}
+            >
+              {t('auth.forgot.back')}
+            </button>
+          </div>
+        )}
+
         {totpRequired && mode === 'login' && (
           <>
             <label htmlFor="totpCode">{t('auth.totp.label')}</label>
@@ -144,11 +203,13 @@ export function AuthPage() {
 
         {error && <div className="error">{error}</div>}
 
-        <button className="btn" type="submit" disabled={busy}>
-          {busy ? t('auth.processing') : mode === 'login' ? t('auth.btn.login') : t('auth.btn.register')}
-        </button>
+        {!(mode === 'login' && showForgot) && (
+          <button className="btn" type="submit" disabled={busy}>
+            {busy ? t('auth.processing') : mode === 'login' ? t('auth.btn.login') : t('auth.btn.register')}
+          </button>
+        )}
 
-        {mode === 'login' && (
+        {mode === 'login' && !showForgot && (
           <>
             <div className="or-divider">{t('auth.or')}</div>
             <button type="button" className="btn btn-passkey" onClick={onPasskey} disabled={busy}>
@@ -188,6 +249,8 @@ export function AuthPage() {
               setError('')
               setTotpRequired(false)
               setTotpCode('')
+              setShowForgot(false)
+              setForgotSent(false)
             }}
           >
             {mode === 'login' ? t('auth.switch.register') : t('auth.switch.login')}

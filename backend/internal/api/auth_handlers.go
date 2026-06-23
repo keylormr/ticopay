@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -21,7 +22,12 @@ type authResponse struct {
 }
 
 func (a *App) issueAuthResponse(w http.ResponseWriter, status int, u models.User, accounts []models.Account) {
-	access, refresh, err := a.jwt.Issue(u.ID)
+	ver, err := a.tokenVersion(context.Background(), u.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not issue tokens")
+		return
+	}
+	access, refresh, err := a.jwt.Issue(u.ID, ver)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not issue tokens")
 		return
@@ -80,9 +86,9 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 	err = tx.QueryRow(ctx,
 		`INSERT INTO users (email, phone, full_name, password_hash)
 		 VALUES ($1, NULLIF($2,''), $3, $4)
-		 RETURNING id, email, COALESCE(phone,''), full_name, kyc_status, COALESCE(id_type,''), COALESCE(id_number,''), created_at`,
+		 RETURNING id, email, COALESCE(phone,''), full_name, kyc_status, COALESCE(id_type,''), COALESCE(id_number,''), COALESCE(email_verified,false), created_at`,
 		req.Email, req.Phone, req.FullName, hash,
-	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.CreatedAt)
+	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.EmailVerified, &u.CreatedAt)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -113,6 +119,14 @@ func (a *App) handleRegister(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not load accounts")
 		return
 	}
+
+	// Best-effort welcome/verification email, off the request path.
+	go func(uid, em, nm string) {
+		bg, cancel := bgEmailCtx()
+		defer cancel()
+		a.sendVerificationEmail(bg, uid, em, nm)
+	}(u.ID, u.Email, u.FullName)
+
 	a.issueAuthResponse(w, http.StatusCreated, u, accounts)
 }
 
@@ -140,16 +154,22 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 	)
 	err := a.pool.QueryRow(ctx,
 		`SELECT id, email, COALESCE(phone,''), full_name, kyc_status,
-		        COALESCE(id_type,''), COALESCE(id_number,''), created_at, password_hash
+		        COALESCE(id_type,''), COALESCE(id_number,''), COALESCE(email_verified,false), created_at, password_hash
 		 FROM users WHERE email = $1`, req.Email,
-	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.CreatedAt, &hash)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !auth.CheckPassword(hash, req.Password)) {
-		loginAttempts.fail(req.Email)
-		writeError(w, http.StatusUnauthorized, "correo o contraseña incorrectos")
+	).Scan(&u.ID, &u.Email, &u.Phone, &u.FullName, &u.KYCStatus, &u.IDType, &u.IDNumber, &u.EmailVerified, &u.CreatedAt, &hash)
+	notFound := errors.Is(err, pgx.ErrNoRows)
+	if err != nil && !notFound {
+		writeError(w, http.StatusInternalServerError, "database error")
 		return
 	}
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "database error")
+	// Always run bcrypt — against a dummy hash when the user doesn't exist — so
+	// response time doesn't reveal account existence (login timing oracle).
+	if notFound {
+		hash = auth.DummyHash
+	}
+	if !auth.CheckPassword(hash, req.Password) || notFound {
+		loginAttempts.fail(req.Email)
+		writeError(w, http.StatusUnauthorized, "correo o contraseña incorrectos")
 		return
 	}
 
@@ -195,7 +215,14 @@ func (a *App) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid or expired refresh token")
 		return
 	}
-	access, refresh, err := a.jwt.Issue(claims.UserID)
+	// Reject refresh tokens minted before a credential change (e.g. password
+	// reset bumped token_version). This is what evicts a stolen session.
+	ver, err := a.tokenVersion(r.Context(), claims.UserID)
+	if err != nil || ver != claims.Ver {
+		writeError(w, http.StatusUnauthorized, "invalid or expired refresh token")
+		return
+	}
+	access, refresh, err := a.jwt.Issue(claims.UserID, ver)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not issue tokens")
 		return
