@@ -44,6 +44,8 @@ func (a *App) Router() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(slogRequests)
 	r.Use(middleware.Recoverer)
+	r.Use(a.secureHeaders)
+	r.Use(maxBody)
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   a.cfg.CORSOrigins,
@@ -77,9 +79,8 @@ func (a *App) Router() http.Handler {
 			r.Post("/auth/forgot", a.handleForgotPassword)
 			r.Post("/auth/reset", a.handleResetPassword)
 			r.Post("/auth/verify-email", a.handleVerifyEmail)
+			r.Post("/auth/refresh", a.handleRefresh)
 		})
-
-		r.Post("/auth/refresh", a.handleRefresh)
 
 		// Public: USD/CRC reference rate + full fiat/crypto rate table.
 		r.Get("/exchange-rate", a.handleExchangeRate)
@@ -87,6 +88,15 @@ func (a *App) Router() http.Handler {
 
 		r.Group(func(r chi.Router) {
 			r.Use(a.requireAuth)
+			// Generous per-IP cap as defense-in-depth on authenticated routes
+			// (money + admin). Single-instance in-memory limiter.
+			r.Use(httprate.Limit(
+				120, time.Minute,
+				httprate.WithKeyByIP(),
+				httprate.WithLimitHandler(func(w http.ResponseWriter, _ *http.Request) {
+					writeError(w, http.StatusTooManyRequests, "demasiadas solicitudes, probá de nuevo en un momento")
+				}),
+			))
 
 			r.Get("/me", a.handleMe)
 			r.Get("/transactions", a.handleListTransactions)
@@ -163,6 +173,31 @@ func (a *App) Router() http.Handler {
 	})
 
 	return r
+}
+
+// secureHeaders sets defense-in-depth response headers. The API serves only
+// JSON, so a deny-all CSP and anti-framing are safe; HSTS only in production.
+func (a *App) secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+		if a.cfg.IsProd() {
+			h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// maxBody caps request bodies (1 MiB) to avoid memory exhaustion from oversized
+// JSON payloads.
+func maxBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		next.ServeHTTP(w, r)
+	})
 }
 
 // --- JSON helpers ---

@@ -103,6 +103,6 @@ func Run(ctx context.Context, pool *pgxpool.Pool) error {
 			maria)
 	}
 
-	fmt.Printf("[seed] created %d demo users (password: %s)\n", len(demoUsers), demoPassword)
+	fmt.Printf("[seed] created %d demo users\n", len(demoUsers))
 	return nil
 }

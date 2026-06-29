@@ -20,6 +20,15 @@ func main() {
 	ctx := context.Background()
 	logger := api.Logger
 
+	// Fail closed on a weak/missing signing secret in production; warn in dev.
+	if cfg.JWTSecret == "" || cfg.JWTSecret == config.DefaultJWTSecret || len(cfg.JWTSecret) < 32 {
+		if cfg.IsProd() {
+			logger.Error("JWT_SECRET ausente, demasiado corto (<32) o usando el default inseguro; definí uno fuerte en producción")
+			os.Exit(1)
+		}
+		logger.Warn("JWT_SECRET inseguro/por defecto: aceptable solo en desarrollo (definí APP_ENV=production y un JWT_SECRET fuerte en prod)")
+	}
+
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		logger.Error("database connect failed", "error", err)
@@ -33,7 +42,9 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if cfg.SeedDemo {
+	// Never seed demo data (which includes a public-password admin) in
+	// production, regardless of SEED_DEMO.
+	if cfg.SeedDemo && !cfg.IsProd() {
 		if err := seed.Run(ctx, pool); err != nil {
 			logger.Error("seed failed", "error", err)
 			os.Exit(1)

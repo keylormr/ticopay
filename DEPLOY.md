@@ -26,14 +26,17 @@ Variables de entorno (coinciden con `backend/internal/config/config.go`):
 | Variable         | Valor                                                  |
 | ---------------- | ------------------------------------------------------ |
 | `PORT`           | `8080`                                                 |
+| `APP_ENV`        | `production` (exige `JWT_SECRET` fuerte y desactiva el seed demo) |
 | `DATABASE_URL`   | la connection string de Neon                           |
-| `JWT_SECRET`     | `openssl rand -base64 48` (≥32 chars)                  |
+| `JWT_SECRET`     | `openssl rand -base64 48` (≥32 chars). En `production` el server **no arranca** si falta o es débil |
+| `ADMIN_EMAIL`    | tu correo de admin; se promueve al arrancar (la cuenta debe existir/registrarse antes) |
 | `CORS_ORIGINS`   | `https://<tu-app>.vercel.app` (sin slash final)        |
 | `RUN_MIGRATIONS` | `true` (solo 1er deploy / cuando agregués migración)   |
-| `SEED_DEMO`      | `true` (solo 1er deploy)                               |
+| `SEED_DEMO`      | en `production` se ignora (nunca se siembra demo)      |
 
 - Verificar: `https://ticopay.onrender.com/health`
-- Tras el 1er deploy: **quitar** `RUN_MIGRATIONS` y `SEED_DEMO`.
+- Tras el 1er deploy: **quitar** `RUN_MIGRATIONS`.
+- Con `APP_ENV=production` no hay cuenta admin demo: registrá tu cuenta y promovela con `ADMIN_EMAIL`. Si ya desplegaste con datos demo, **desactivá o cambiale la contraseña a `maria@ticopay.cr`** (es admin con contraseña pública).
 
 > `CORS_ORIGINS` se carga como un slice de **un solo origen** en `config.go`. Si necesitás varios,
 > hay que cambiar el parseo a split por comas.

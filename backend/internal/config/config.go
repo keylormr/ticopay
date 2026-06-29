@@ -6,8 +6,14 @@ import (
 	"time"
 )
 
+// DefaultJWTSecret is the dev-only fallback for JWT_SECRET. Production must
+// override it: the server refuses to start in production with this (or any
+// weak/empty) secret. See cmd/server/main.go.
+const DefaultJWTSecret = "dev-secret-change-in-production-please-32+"
+
 type Config struct {
 	Port          string
+	AppEnv        string // APP_ENV: "production" enables prod hardening (strong secret required, no demo seed)
 	DatabaseURL   string
 	JWTSecret     string
 	AccessTTL     time.Duration
@@ -24,8 +30,9 @@ type Config struct {
 func Load() Config {
 	return Config{
 		Port:          env("PORT", "8080"),
+		AppEnv:        env("APP_ENV", "development"),
 		DatabaseURL:   env("DATABASE_URL", "postgres://ticopay:ticopay_dev@localhost:5433/ticopay?sslmode=disable"),
-		JWTSecret:     env("JWT_SECRET", "dev-secret-change-in-production-please-32+"),
+		JWTSecret:     env("JWT_SECRET", DefaultJWTSecret),
 		AccessTTL:     15 * time.Minute,
 		RefreshTTL:    7 * 24 * time.Hour,
 		CORSOrigins:   splitCSV(env("CORS_ORIGINS", "http://localhost:5174")),
@@ -36,6 +43,11 @@ func Load() Config {
 		EmailDebug:    env("EMAIL_DEBUG", "") == "true",
 		AdminEmail:    env("ADMIN_EMAIL", ""),
 	}
+}
+
+// IsProd reports whether APP_ENV selects production hardening.
+func (c Config) IsProd() bool {
+	return strings.EqualFold(c.AppEnv, "production")
 }
 
 // splitCSV parses a comma-separated env value (e.g. multiple CORS origins),
