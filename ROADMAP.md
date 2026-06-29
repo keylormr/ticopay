@@ -22,11 +22,23 @@ Cobro por QR de comercio inspirado en el modelo KiramoPay, montado sobre el wall
 - **Ledger de doble entrada** (`ledger_entries` + trigger DEFERRED de balanceo) y cuenta `SYSTEM:FEES`. Los saldos siguen siendo la fuente operativa; el ledger es el registro auditable de pagos wallet-to-wallet. Migración `0012`.
 - **Idempotencia extremo a extremo** (`Idempotency-Key` + tabla `idempotency_keys`, migración `0013`) en enviar, SINPE, servicios, **convertir** y aportes; los cobros son idempotentes por `paid_by`. Cierra la **carrera de doble pago** que existía en cobros/vaquitas (ahora `FOR UPDATE` + una sola transacción).
 - **Comercios** (`merchants`, migración `0014`): multi-comercio, KYC ligero, estados `pending/verified/rejected` y `commission_bps` (default 50 = 0,50 %). Solo un comercio verificado y propio cobra; la comisión es entera (`A*bps/10000`) y se asienta como `pagador −A, comercio +(A−f), SYSTEM:FEES +f`.
-- **Rol admin server-side** (`users.role`, migración `0015`; `requireAdmin`, `/api/admin/*`): aprueba/rechaza comercios y ajusta comisión. El rol no viaja en el JWT ni en `/me`. Bootstrap en prod por env `ADMIN_EMAIL`; el seed demo deja admin a `maria@ticopay.cr`.
+- **Rol admin server-side** (`users.role`, migración `0015`; `/api/admin/*`): el rol no viaja en el JWT ni en `/me`. Bootstrap en prod por env `ADMIN_EMAIL`; el seed demo deja admin a `maria@ticopay.cr`. **Evolucionado a RBAC completo** — ver la sección "Back-office" más abajo.
 - **Frontend:** secciones Comercio y Admin (i18n ES/EN), rótulo "simulado" en SINPE/Servicios, y sin reintento ciego de POSTs de dinero.
 - **Ledger completo (migración `0016`):** las conversiones se asientan como FX balanceado contra `SYSTEM:FX` (usuario −F/+T, mesa FX +F/−T) y los pagos de servicios contra `SYSTEM:CLEARING`, así que **todo cambio de saldo es reconciliable** contra el ledger. La regla de saldo no-negativo pasó de un `CHECK` de columna a un trigger que exime a las cuentas de sistema (sus posiciones pueden ser negativas).
 - **`Idempotency-Key` obligatoria** en los POST de dinero (send, SINPE, servicios, convertir, aportes): el server devuelve 400 si falta.
 - **Pruebas:** integración del camino del dinero (`money_db_test.go`) **gateadas por `TEST_DATABASE_URL`** (corren en CI con servicio Postgres; se saltan en local). Nuevo `.github/workflows/ci.yml` (Go build/vet/test + frontend).
+
+---
+
+## 🟣 Back-office: roles, usuarios y reportes (implementado, **sin desplegar**)
+Gestión de roles "digna de fintech" y panel de analítica, sobre el RBAC del riel de comercio.
+
+- **RBAC de roles fijos** (`permissions.go`): `user`, `merchant`, `support`, `analyst`, `admin`, con una **matriz de permisos** (`backoffice.access`, `reports.view`, `users.manage`, `merchants.verify`, `merchants.commission`). `requirePerm` reemplaza a `requireAdmin` y **lee el rol de la BD en cada request** (nunca del cliente ni del JWT). `support` opera/verifica pero no toca comisiones ni usuarios; `analyst` es solo lectura.
+- **Gestión de staff** (`staff.go`): crear usuarios con rol, cambiar rol, activar/desactivar. Desactivar **revoca las sesiones** (bump de `token_version`) y `requireAuth` bloquea cuentas desactivadas (`users.disabled`, migración `0017`). Guards: no quitarte tu propio admin, no dejar la plataforma sin administradores (advisory lock), no tocar los system users.
+- **Panel de reportes** (`reports.go`, capacidad `reports.view`): overview de KPIs (usuarios/activos, comercios, transacciones, volumen y comisiones por moneda), series de tiempo, desglose por tipo, **salud del ledger** (neto por moneda = 0 + posiciones de sistema), y **transacciones filtrables** (fecha/tipo/moneda/texto, paginadas) con **export CSV** sanitizado contra inyección de fórmulas.
+- **Frontend** (`sections/admin/`): panel con sub-pestañas Reportes / Usuarios / Comercios gateadas por **capacidades** (no por el rol; el server gatea cada endpoint), gráficos SVG modernos sin dependencias (`components/Charts.tsx`: área, barras, donut, KPIs), tabla filtrable + descarga CSV. i18n ES/EN.
+
+> Revisión adversarial: corregidos inyección de fórmulas CSV, lockout del último admin (con advisory lock), bypass del self-guard por UUID en mayúsculas, errores silenciados en métricas y validación de fechas.
 
 ---
 
