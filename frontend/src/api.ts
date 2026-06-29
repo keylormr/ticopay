@@ -104,6 +104,20 @@ export interface Biller {
   refPlaceholder: string
 }
 
+export interface Merchant {
+  id: string
+  name: string
+  category: string
+  legalName?: string
+  idType?: string
+  idNumber?: string
+  status: 'pending' | 'verified' | 'rejected'
+  rejectReason?: string
+  commissionBps: number
+  ownerEmail?: string
+  createdAt: string
+}
+
 export interface AuthResult {
   accessToken: string
   refreshToken: string
@@ -170,12 +184,24 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
 
   const res = await fetch(`${API_URL}${path}`, { ...init, headers })
   if (res.status === 401 && retry && (await refreshTokens())) {
-    return request<T>(path, init, false)
+    // Only replay requests that are safe to repeat: GET/HEAD are idempotent,
+    // and money POSTs carry an Idempotency-Key the server dedupes on. A plain
+    // money POST is never auto-retried, so a stale-token failure can't double
+    // it; the caller surfaces the error and the user retries deliberately.
+    const method = (init.method ?? 'GET').toUpperCase()
+    if (method === 'GET' || method === 'HEAD' || headers.has('Idempotency-Key')) {
+      return request<T>(path, init, false)
+    }
   }
   return parse<T>(res)
 }
 
 const body = (v: unknown) => JSON.stringify(v)
+
+// idem returns request init carrying a fresh Idempotency-Key so the server
+// dedupes a retried call (network re-send) without moving money twice. A new
+// key per call means two deliberate clicks remain two distinct operations.
+const idem = (): RequestInit => ({ headers: { 'Idempotency-Key': crypto.randomUUID() } })
 
 export const api = {
   // --- auth ---
@@ -206,18 +232,20 @@ export const api = {
     return request<{ transactions: Transaction[] }>('/api/transactions')
   },
   send(input: { to: string; amount: number; currency: Currency; description: string }) {
-    return request<{ id: string; newBalance: number }>('/api/transactions', { method: 'POST', body: body(input) })
+    return request<{ id: string; newBalance: number }>('/api/transactions', { method: 'POST', body: body(input), ...idem() })
   },
   sinpe(input: { toPhone: string; amount: number; description: string }) {
-    return request<{ comprobante: string; recipientName: string; amountCents: number; at: string }>('/api/sinpe', {
+    return request<{ comprobante: string; recipientName: string; amountCents: number; at: string; simulated: boolean }>('/api/sinpe', {
       method: 'POST',
       body: body(input),
+      ...idem(),
     })
   },
   convert(input: { from: Currency; to: Currency; amount: number }) {
     return request<{ fromCents: number; toCents: number; rate: ExchangeRate }>('/api/convert', {
       method: 'POST',
       body: body(input),
+      ...idem(),
     })
   },
   exchangeRate() {
@@ -246,10 +274,10 @@ export const api = {
     return request<PaymentRequest>(`/api/requests/${id}`)
   },
   payRequest(id: string, amount?: number) {
-    return request<{ status: string; amountCents: number; currency: Currency }>(`/api/requests/${id}/pay`, {
-      method: 'POST',
-      body: body({ amount: amount ?? 0 }),
-    })
+    return request<{ status: string; amountCents: number; currency: Currency; feeCents: number; netCents: number }>(
+      `/api/requests/${id}/pay`,
+      { method: 'POST', body: body({ amount: amount ?? 0 }) },
+    )
   },
 
   // --- vaquitas (pools) ---
@@ -266,6 +294,7 @@ export const api = {
     return request<{ status: string; amountCents: number }>(`/api/pools/${id}/contribute`, {
       method: 'POST',
       body: body({ amount }),
+      ...idem(),
     })
   },
 
@@ -322,10 +351,39 @@ export const api = {
     return request<{ billers: Biller[] }>('/api/billers')
   },
   payService(input: { billerId: string; reference: string; amount: number; currency: Currency }) {
-    return request<{ id: string; newBalance: number }>('/api/payments/service', {
+    return request<{ id: string; newBalance: number; simulated: boolean }>('/api/payments/service', {
       method: 'POST',
       body: body(input),
+      ...idem(),
     })
+  },
+
+  // --- merchants (commerce rail) ---
+  listMerchants() {
+    return request<{ merchants: Merchant[] }>('/api/merchants')
+  },
+  createMerchant(input: { name: string; category: string; legalName?: string; idType?: string; idNumber?: string }) {
+    return request<Merchant>('/api/merchants', { method: 'POST', body: body(input) })
+  },
+  merchantCharge(id: string, input: { amount?: number; currency: Currency; description: string }) {
+    return request<{ id: string; currency: Currency }>(`/api/merchants/${id}/charge`, { method: 'POST', body: body(input) })
+  },
+
+  // --- admin (server-side role; client only probes whoami) ---
+  adminWhoami() {
+    return request<{ admin: boolean }>('/api/admin/whoami')
+  },
+  adminListMerchants() {
+    return request<{ merchants: Merchant[] }>('/api/admin/merchants')
+  },
+  adminVerifyMerchant(id: string) {
+    return request<{ status: string }>(`/api/admin/merchants/${id}/verify`, { method: 'POST', body: '{}' })
+  },
+  adminRejectMerchant(id: string, reason: string) {
+    return request<{ status: string }>(`/api/admin/merchants/${id}/reject`, { method: 'POST', body: body({ reason }) })
+  },
+  adminSetCommission(id: string, bps: number) {
+    return request<{ commissionBps: number }>(`/api/admin/merchants/${id}/commission`, { method: 'POST', body: body({ bps }) })
   },
 }
 

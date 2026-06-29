@@ -77,6 +77,7 @@ export function Sinpe({ reload }: { reload: () => Promise<void> }) {
         <h2 style={{ margin: 0 }}>{t('sinpe.title')}</h2>
       </div>
       <p className="sub">{t('sinpe.sub')}</p>
+      <p className="sub" style={{ fontStyle: 'italic' }}>{t('common.simulated')}</p>
       <form onSubmit={onSend}>
         <label htmlFor="sphone">{t('sinpe.phone')}</label>
         <input id="sphone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="8888-0000" required />

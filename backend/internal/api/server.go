@@ -48,7 +48,7 @@ func (a *App) Router() http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   a.cfg.CORSOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Lang"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Lang", "Idempotency-Key"},
 		AllowCredentials: false,
 		MaxAge:           300,
 	}))
@@ -107,6 +107,22 @@ func (a *App) Router() http.Handler {
 
 			r.Get("/billers", a.handleListBillers)
 			r.Post("/payments/service", a.handlePayService)
+
+			// Commerce rail: register merchants and emit QR charges.
+			r.Post("/merchants", a.handleCreateMerchant)
+			r.Get("/merchants", a.handleListMerchants)
+			r.Post("/merchants/{id}/charge", a.handleCreateMerchantCharge)
+
+			// Admin-only: merchant verification and commission. The role is
+			// checked server-side and never exposed to the client.
+			r.Route("/admin", func(r chi.Router) {
+				r.Use(a.requireAdmin)
+				r.Get("/whoami", a.handleAdminWhoami)
+				r.Get("/merchants", a.handleAdminListMerchants)
+				r.Post("/merchants/{id}/verify", a.handleAdminVerifyMerchant)
+				r.Post("/merchants/{id}/reject", a.handleAdminRejectMerchant)
+				r.Post("/merchants/{id}/commission", a.handleAdminSetCommission)
+			})
 
 			// Passkey management (requires an active session).
 			r.Post("/passkeys/register/begin", a.handlePasskeyRegisterBegin)

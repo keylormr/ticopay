@@ -157,57 +157,113 @@ func (a *App) handlePayRequest(w http.ResponseWriter, r *http.Request) {
 	_ = decodeJSON(r, &body)
 
 	ctx := r.Context()
+	payer := userID(r)
 	var (
-		requesterID string
-		amountCents *int64
-		currency    string
-		status      string
-		description string
+		respAmount   int64
+		respCurrency string
+		feeApplied   int64
 	)
-	err := a.pool.QueryRow(ctx,
-		`SELECT requester_id, amount_cents, currency, status, description FROM payment_requests WHERE id = $1`, id,
-	).Scan(&requesterID, &amountCents, &currency, &status, &description)
-	if errors.Is(err, pgx.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "cobro no encontrado")
-		return
-	}
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not load request")
-		return
-	}
-	if status != "pending" {
-		writeError(w, http.StatusConflict, "este cobro ya fue pagado o cancelado")
-		return
-	}
+	// The whole settlement runs in one transaction: the cobro row is locked
+	// FOR UPDATE, its status re-checked under the lock, the money moved, and the
+	// status flipped to paid — so concurrent or retried calls can't double-pay.
+	err := a.inTx(ctx, func(tx pgx.Tx) error {
+		var (
+			requesterID string
+			amountCents *int64
+			currency    string
+			status      string
+			description string
+			merchantID  *string
+			paidBy      *string
+			paidTxID    *string
+		)
+		err := tx.QueryRow(ctx,
+			`SELECT requester_id, amount_cents, currency, status, description, merchant_id, paid_by, paid_tx_id
+			 FROM payment_requests WHERE id = $1 FOR UPDATE`, id,
+		).Scan(&requesterID, &amountCents, &currency, &status, &description, &merchantID, &paidBy, &paidTxID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errReqNotFound
+		}
+		if err != nil {
+			return errTransferOther
+		}
 
-	pay := int64(0)
-	if amountCents != nil {
-		pay = *amountCents
-	} else {
-		pay = toMinor(body.Amount, currency)
-	}
-	if pay <= 0 {
-		writeError(w, http.StatusBadRequest, "el monto debe ser mayor a cero")
-		return
-	}
+		// Idempotent replay: if THIS payer already settled the cobro, report the
+		// same result instead of charging again (a retried request is a no-op).
+		// Read the real amounts from the original transaction so the replayed
+		// receipt matches — including merchant commission and open amounts.
+		if status == "paid" {
+			if paidBy != nil && *paidBy == payer {
+				respCurrency = currency
+				if paidTxID != nil {
+					_ = tx.QueryRow(ctx,
+						`SELECT amount_cents, fee_cents FROM transactions WHERE id = $1`, *paidTxID,
+					).Scan(&respAmount, &feeApplied)
+				} else if amountCents != nil {
+					respAmount = *amountCents
+				}
+				return nil
+			}
+			return errReqNotPayable
+		}
+		if status != "pending" {
+			return errReqNotPayable
+		}
 
-	desc := description
-	if desc == "" {
-		desc = "Pago de cobro"
-	}
-	txID, err := a.transferToUser(ctx, userID(r), requesterID, currency, pay, desc, "request")
+		pay := int64(0)
+		if amountCents != nil {
+			pay = *amountCents
+		} else {
+			pay = toMinor(body.Amount, currency)
+		}
+		if pay <= 0 {
+			return errBadAmount
+		}
+
+		desc := description
+		if desc == "" {
+			desc = "Pago de cobro"
+		}
+		// Merchant cobros carry a commission absorbed by the merchant; the payer
+		// pays exactly `pay` and the merchant receives pay - fee.
+		fee := int64(0)
+		kind := "request"
+		if merchantID != nil {
+			var mstatus string
+			var bps int64
+			if err := tx.QueryRow(ctx,
+				`SELECT status, commission_bps FROM merchants WHERE id = $1 FOR UPDATE`, *merchantID,
+			).Scan(&mstatus, &bps); err != nil {
+				return errTransferOther
+			}
+			if mstatus != "verified" {
+				return errMerchantUnverified
+			}
+			fee = feeCents(pay, bps)
+			kind = "merchant"
+		}
+
+		txID, err := a.transferToUserTx(ctx, tx, payer, requesterID, currency, pay, fee, desc, kind)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE payment_requests SET status = 'paid', paid_by = $1, paid_tx_id = $2 WHERE id = $3`,
+			payer, txID, id,
+		); err != nil {
+			return errTransferOther
+		}
+		respAmount = pay
+		respCurrency = currency
+		feeApplied = fee
+		return nil
+	})
 	if err != nil {
 		writeTransferError(w, err)
 		return
 	}
-
-	if _, err := a.pool.Exec(ctx,
-		`UPDATE payment_requests SET status = 'paid', paid_by = $1, paid_tx_id = $2 WHERE id = $3`,
-		userID(r), txID, id,
-	); err != nil {
-		writeError(w, http.StatusInternalServerError, "payment recorded but request not updated")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{"status": "paid", "amountCents": pay, "currency": currency})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status": "paid", "amountCents": respAmount, "currency": respCurrency,
+		"feeCents": feeApplied, "netCents": respAmount - feeApplied,
+	})
 }

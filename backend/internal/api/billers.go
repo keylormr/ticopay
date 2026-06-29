@@ -79,12 +79,13 @@ func (a *App) handlePayService(w http.ResponseWriter, r *http.Request) {
 	}
 
 	desc := biller.Name + " · " + req.Reference
-	txID, newBalance, err := a.payOut(r.Context(), userID(r), currency, amountCents, desc, "service")
-	if err != nil {
-		writeTransferError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"id": txID, "amountCents": amountCents, "currency": currency, "newBalance": newBalance,
+	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
+		txID, newBalance, err := a.payOut(r.Context(), userID(r), currency, amountCents, desc, "service")
+		if err != nil {
+			return 0, nil, err
+		}
+		return http.StatusCreated, map[string]any{
+			"id": txID, "amountCents": amountCents, "currency": currency, "newBalance": newBalance, "simulated": true,
+		}, nil
 	})
 }

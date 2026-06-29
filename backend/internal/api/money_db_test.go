@@ -1,0 +1,251 @@
+package api
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"sync/atomic"
+	"testing"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"ticopay/backend/internal/db"
+)
+
+// These tests exercise the real money path against a Postgres database. They
+// are skipped unless TEST_DATABASE_URL points at a disposable database (CI sets
+// it via a postgres service); plain `go test ./...` runs the pure-logic tests
+// only. This is the safety net KiramoPay learned it needed: the double-entry
+// trigger, idempotency and commission split only show their teeth against a
+// real DB.
+
+var seq int64
+
+func testDB(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	dsn := os.Getenv("TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_URL not set; skipping DB integration tests")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	if err := db.Migrate(ctx, pool); err != nil {
+		pool.Close()
+		t.Fatalf("migrate: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	return pool
+}
+
+// makeUser creates a fresh user with one account of the given currency/balance.
+func makeUser(t *testing.T, pool *pgxpool.Pool, currency string, balance int64) (userID, email string) {
+	t.Helper()
+	ctx := context.Background()
+	email = fmt.Sprintf("u%d@test.local", atomic.AddInt64(&seq, 1))
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO users (email, full_name, password_hash, kyc_status, email_verified)
+		 VALUES ($1, $1, '', 'verified', true) RETURNING id`, email,
+	).Scan(&userID); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO accounts (user_id, currency, balance_cents) VALUES ($1, $2, $3)`,
+		userID, currency, balance); err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+	return userID, email
+}
+
+func balanceOf(t *testing.T, pool *pgxpool.Pool, userID, currency string) int64 {
+	t.Helper()
+	var b int64
+	if err := pool.QueryRow(context.Background(),
+		`SELECT balance_cents FROM accounts WHERE user_id = $1 AND currency = $2`, userID, currency,
+	).Scan(&b); err != nil {
+		t.Fatalf("balance: %v", err)
+	}
+	return b
+}
+
+func ledgerSum(t *testing.T, pool *pgxpool.Pool, txID string) int64 {
+	t.Helper()
+	var s int64
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COALESCE(SUM(amount_cents), 0) FROM ledger_entries WHERE transaction_id = $1`, txID,
+	).Scan(&s); err != nil {
+		t.Fatalf("ledger sum: %v", err)
+	}
+	return s
+}
+
+func TestTransferMovesMoneyAndLedgerBalances(t *testing.T) {
+	pool := testDB(t)
+	a := &App{pool: pool}
+	ctx := context.Background()
+
+	from, _ := makeUser(t, pool, "CRC", 100_000)
+	to, toEmail := makeUser(t, pool, "CRC", 0)
+
+	txID, newBal, err := a.transfer(ctx, from, toEmail, "CRC", 30_000, "prueba", "transfer")
+	if err != nil {
+		t.Fatalf("transfer: %v", err)
+	}
+	if newBal != 70_000 {
+		t.Fatalf("sender balance = %d, want 70000", newBal)
+	}
+	if got := balanceOf(t, pool, from, "CRC"); got != 70_000 {
+		t.Fatalf("from account = %d, want 70000", got)
+	}
+	if got := balanceOf(t, pool, to, "CRC"); got != 30_000 {
+		t.Fatalf("to account = %d, want 30000", got)
+	}
+	if s := ledgerSum(t, pool, txID); s != 0 {
+		t.Fatalf("ledger entries for tx do not net to zero: sum = %d", s)
+	}
+}
+
+func TestInsufficientFundsRollsBack(t *testing.T) {
+	pool := testDB(t)
+	a := &App{pool: pool}
+	ctx := context.Background()
+
+	from, _ := makeUser(t, pool, "CRC", 100)
+	to, toEmail := makeUser(t, pool, "CRC", 0)
+
+	if _, _, err := a.transfer(ctx, from, toEmail, "CRC", 500, "prueba", "transfer"); err == nil {
+		t.Fatal("expected insufficient-funds error, got nil")
+	}
+	if got := balanceOf(t, pool, from, "CRC"); got != 100 {
+		t.Fatalf("from account changed on failed transfer: %d, want 100", got)
+	}
+	if got := balanceOf(t, pool, to, "CRC"); got != 0 {
+		t.Fatalf("to account changed on failed transfer: %d, want 0", got)
+	}
+}
+
+// payCobro fires POST /requests/{id}/pay as the given payer.
+func payCobro(t *testing.T, a *App, payerID, reqID string) *httptest.ResponseRecorder {
+	t.Helper()
+	r := chi.NewRouter()
+	r.Use(withLang)
+	r.Post("/requests/{id}/pay", func(w http.ResponseWriter, req *http.Request) {
+		ctx := context.WithValue(req.Context(), userIDKey, payerID)
+		a.handlePayRequest(w, req.WithContext(ctx))
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/requests/"+reqID+"/pay", strings.NewReader(`{"amount":0}`))
+	r.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestPayRequestIsIdempotentNoDoublePay(t *testing.T) {
+	pool := testDB(t)
+	a := &App{pool: pool}
+	ctx := context.Background()
+
+	requester, _ := makeUser(t, pool, "CRC", 0)
+	payer, _ := makeUser(t, pool, "CRC", 100_000)
+
+	var reqID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO payment_requests (requester_id, amount_cents, currency, description)
+		 VALUES ($1, 20000, 'CRC', 'cobro') RETURNING id`, requester,
+	).Scan(&reqID); err != nil {
+		t.Fatalf("create cobro: %v", err)
+	}
+
+	if rec := payCobro(t, a, payer, reqID); rec.Code != http.StatusOK {
+		t.Fatalf("first pay: status %d, body %s", rec.Code, rec.Body.String())
+	}
+	// A retry of the same cobro by the same payer must NOT move money again.
+	if rec := payCobro(t, a, payer, reqID); rec.Code != http.StatusOK {
+		t.Fatalf("retry pay: status %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	if got := balanceOf(t, pool, payer, "CRC"); got != 80_000 {
+		t.Fatalf("payer charged %d total, want a single 20000 charge (balance 80000)", got)
+	}
+	if got := balanceOf(t, pool, requester, "CRC"); got != 20_000 {
+		t.Fatalf("requester received %d, want 20000 (paid once)", got)
+	}
+}
+
+func TestMerchantCommissionSplit(t *testing.T) {
+	pool := testDB(t)
+	a := &App{pool: pool}
+	ctx := context.Background()
+
+	owner, _ := makeUser(t, pool, "CRC", 0)
+	payer, _ := makeUser(t, pool, "CRC", 200_000)
+
+	var merchantID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO merchants (owner_id, name, status, commission_bps)
+		 VALUES ($1, 'Soda', 'verified', 50) RETURNING id`, owner,
+	).Scan(&merchantID); err != nil {
+		t.Fatalf("create merchant: %v", err)
+	}
+	var reqID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO payment_requests (requester_id, merchant_id, amount_cents, currency, description)
+		 VALUES ($1, $2, 100000, 'CRC', 'venta') RETURNING id`, owner, merchantID,
+	).Scan(&reqID); err != nil {
+		t.Fatalf("create merchant charge: %v", err)
+	}
+
+	if rec := payCobro(t, a, payer, reqID); rec.Code != http.StatusOK {
+		t.Fatalf("merchant pay: status %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	// Payer pays the full 100000; merchant receives net 99500; fees account +500.
+	if got := balanceOf(t, pool, payer, "CRC"); got != 100_000 {
+		t.Fatalf("payer balance = %d, want 100000", got)
+	}
+	if got := balanceOf(t, pool, owner, "CRC"); got != 99_500 {
+		t.Fatalf("merchant net = %d, want 99500", got)
+	}
+	if got := balanceOf(t, pool, sysFeesUserID, "CRC"); got != 500 {
+		t.Fatalf("SYSTEM:FEES = %d, want 500", got)
+	}
+}
+
+func TestLedgerTriggerRejectsUnbalanced(t *testing.T) {
+	pool := testDB(t)
+	ctx := context.Background()
+
+	// A real account + transaction to attach a (deliberately unbalanced) entry.
+	owner, _ := makeUser(t, pool, "CRC", 1000)
+	var accID string
+	if err := pool.QueryRow(ctx,
+		`SELECT id FROM accounts WHERE user_id = $1 AND currency = 'CRC'`, owner).Scan(&accID); err != nil {
+		t.Fatalf("acct: %v", err)
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback(ctx)
+	var txID string
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO transactions (from_account_id, amount_cents, currency, kind)
+		 VALUES ($1, 100, 'CRC', 'transfer') RETURNING id`, accID).Scan(&txID); err != nil {
+		t.Fatalf("insert tx: %v", err)
+	}
+	// One-sided entry: should make COMMIT fail via the deferred balance trigger.
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO ledger_entries (transaction_id, account_id, currency, amount_cents) VALUES ($1, $2, 'CRC', 100)`,
+		txID, accID); err != nil {
+		t.Fatalf("insert entry: %v", err)
+	}
+	if err := tx.Commit(ctx); err == nil {
+		t.Fatal("expected commit to fail on unbalanced ledger, got nil")
+	}
+}

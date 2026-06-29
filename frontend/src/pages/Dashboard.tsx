@@ -14,9 +14,11 @@ import { SendMoney } from '../sections/SendMoney'
 import { Cobros } from '../sections/Cobros'
 import { Servicios } from '../sections/Servicios'
 import { Vaquitas } from '../sections/Vaquitas'
+import { Comercio } from '../sections/Comercio'
+import { Admin } from '../sections/Admin'
 import { Account as AccountTab } from '../sections/Account'
 
-type Tab = 'inicio' | 'sinpe' | 'convertir' | 'enviar' | 'cobrar' | 'servicios' | 'vaquitas' | 'cuenta'
+type Tab = 'inicio' | 'sinpe' | 'convertir' | 'enviar' | 'cobrar' | 'servicios' | 'vaquitas' | 'comercio' | 'cuenta' | 'admin'
 
 const TABS: { id: Tab; icon: string }[] = [
   { id: 'inicio', icon: '🏠' },
@@ -26,8 +28,11 @@ const TABS: { id: Tab; icon: string }[] = [
   { id: 'cobrar', icon: '🧾' },
   { id: 'servicios', icon: '💡' },
   { id: 'vaquitas', icon: '🐮' },
+  { id: 'comercio', icon: '🏪' },
   { id: 'cuenta', icon: '👤' },
 ]
+
+const ADMIN_TAB: { id: Tab; icon: string } = { id: 'admin', icon: '🛡️' }
 
 export function Dashboard() {
   const { user, accounts, logout, refresh } = useAuth()
@@ -36,10 +41,22 @@ export function Dashboard() {
   const [version, setVersion] = useState(0)
   const [rates, setRates] = useState<Rates | null>(null)
   const [showAllCrypto, setShowAllCrypto] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     api.rates().then(setRates).catch(() => {})
   }, [version])
+
+  // The admin tab appears only if the server's admin endpoint answers. The role
+  // is never sent to the client; we infer it from this probe alone.
+  useEffect(() => {
+    api
+      .adminWhoami()
+      .then(() => setIsAdmin(true))
+      .catch(() => setIsAdmin(false))
+  }, [])
+
+  const visibleTabs = isAdmin ? [...TABS, ADMIN_TAB] : TABS
 
   async function reload() {
     await refresh()
@@ -88,7 +105,7 @@ export function Dashboard() {
       </header>
 
       <nav className="tabs sticky-tabs">
-        {TABS.map((tb) => (
+        {visibleTabs.map((tb) => (
           <button key={tb.id} className={`tab ${tab === tb.id ? 'tab-active' : ''}`} onClick={() => changeTab(tb.id)}>
             <span className="tab-icon">{tb.icon}</span>
             {t(`tab.${tb.id}`)}
@@ -174,7 +191,9 @@ export function Dashboard() {
         {tab === 'cobrar' && <Cobros version={version} reload={reload} />}
         {tab === 'servicios' && <Servicios reload={reload} />}
         {tab === 'vaquitas' && <Vaquitas version={version} reload={reload} />}
+        {tab === 'comercio' && <Comercio reload={reload} />}
         {tab === 'cuenta' && <AccountTab />}
+        {tab === 'admin' && isAdmin && <Admin />}
       </main>
     </>
   )

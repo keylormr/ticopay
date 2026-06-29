@@ -16,6 +16,20 @@ Auth (clave + **passkeys/WebAuthn** passwordless + **códigos de recuperación**
 
 ---
 
+## 🟣 Riel de comercio (implementado, **sin desplegar** — en rama de trabajo)
+Cobro por QR de comercio inspirado en el modelo KiramoPay, montado sobre el wallet existente. Compila y pasa pruebas en local; **falta integrar a `main` y desplegar**.
+
+- **Ledger de doble entrada** (`ledger_entries` + trigger DEFERRED de balanceo) y cuenta `SYSTEM:FEES`. Los saldos siguen siendo la fuente operativa; el ledger es el registro auditable de pagos wallet-to-wallet. Migración `0012`.
+- **Idempotencia extremo a extremo** (`Idempotency-Key` + tabla `idempotency_keys`, migración `0013`) en enviar, SINPE, servicios, **convertir** y aportes; los cobros son idempotentes por `paid_by`. Cierra la **carrera de doble pago** que existía en cobros/vaquitas (ahora `FOR UPDATE` + una sola transacción).
+- **Comercios** (`merchants`, migración `0014`): multi-comercio, KYC ligero, estados `pending/verified/rejected` y `commission_bps` (default 50 = 0,50 %). Solo un comercio verificado y propio cobra; la comisión es entera (`A*bps/10000`) y se asienta como `pagador −A, comercio +(A−f), SYSTEM:FEES +f`.
+- **Rol admin server-side** (`users.role`, migración `0015`; `requireAdmin`, `/api/admin/*`): aprueba/rechaza comercios y ajusta comisión. El rol no viaja en el JWT ni en `/me`. Bootstrap en prod por env `ADMIN_EMAIL`; el seed demo deja admin a `maria@ticopay.cr`.
+- **Frontend:** secciones Comercio y Admin (i18n ES/EN), rótulo "simulado" en SINPE/Servicios, y sin reintento ciego de POSTs de dinero.
+- **Pruebas:** integración del camino del dinero (`money_db_test.go`) **gateadas por `TEST_DATABASE_URL`** (corren en CI con servicio Postgres; se saltan en local). Nuevo `.github/workflows/ci.yml` (Go build/vet/test + frontend).
+
+> Deuda conocida (de la revisión adversarial): el ledger cubre pagos wallet-to-wallet; conversiones y pagos de servicios (`payOut`) aún no asientan, así que no son reconciliables contra el ledger. La `Idempotency-Key` es opcional (el cliente la manda; el server no la exige).
+
+---
+
 ## 🟡 Pendientes — Seguridad / producción
 
 ### 1. ~~Recuperar contraseña~~ ✅ **Hecho y desplegado** *(falta solo `RESEND_API_KEY` en Render para que mande correos)*

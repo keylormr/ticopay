@@ -54,6 +54,7 @@ export function Servicios({ reload }: { reload: () => Promise<void> }) {
       <section className="panel">
         <h2>{t('serv.title')}</h2>
         <p className="sub">{t('serv.sub')}</p>
+        <p className="sub" style={{ fontStyle: 'italic' }}>{t('common.simulated')}</p>
         <div className="biller-grid">
           {billers.map((b) => (
             <button

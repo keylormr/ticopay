@@ -64,3 +64,19 @@ type PoolContribution struct {
 	AmountCents int64     `json:"amountCents"`
 	CreatedAt   time.Time `json:"createdAt"`
 }
+
+// Merchant is a business registered by a user. Only a verified merchant can
+// emit QR charges. CommissionBps is the platform fee in basis points.
+type Merchant struct {
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	Category      string    `json:"category"`
+	LegalName     string    `json:"legalName,omitempty"`
+	IDType        string    `json:"idType,omitempty"`
+	IDNumber      string    `json:"idNumber,omitempty"`
+	Status        string    `json:"status"` // pending | verified | rejected
+	RejectReason  string    `json:"rejectReason,omitempty"`
+	CommissionBps int       `json:"commissionBps"`
+	OwnerEmail    string    `json:"ownerEmail,omitempty"` // admin views only
+	CreatedAt     time.Time `json:"createdAt"`
+}

@@ -52,21 +52,21 @@ func (a *App) handleSinpe(w http.ResponseWriter, r *http.Request) {
 		desc = "SINPE Móvil"
 	}
 
-	txID, newBalance, err := a.transfer(r.Context(), userID(r), phone, "CRC", amountCents, desc, "sinpe")
-	if err != nil {
-		writeTransferError(w, err)
-		return
-	}
-
-	// Recipient name for the receipt (best-effort).
-	_, name, _ := a.resolveUserID(r.Context(), phone)
-
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"comprobante":   sinpeComprobante(txID),
-		"recipientName": name,
-		"amountCents":   amountCents,
-		"currency":      "CRC",
-		"newBalance":    newBalance,
-		"at":            time.Now().UTC().Format(time.RFC3339),
+	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
+		txID, newBalance, err := a.transfer(r.Context(), userID(r), phone, "CRC", amountCents, desc, "sinpe")
+		if err != nil {
+			return 0, nil, err
+		}
+		// Recipient name for the receipt (best-effort).
+		_, name, _ := a.resolveUserID(r.Context(), phone)
+		return http.StatusCreated, map[string]any{
+			"comprobante":   sinpeComprobante(txID),
+			"recipientName": name,
+			"amountCents":   amountCents,
+			"currency":      "CRC",
+			"newBalance":    newBalance,
+			"simulated":     true,
+			"at":            time.Now().UTC().Format(time.RFC3339),
+		}, nil
 	})
 }

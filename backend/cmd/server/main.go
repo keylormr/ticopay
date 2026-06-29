@@ -39,6 +39,16 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	// Production admin bootstrap: promote a real account named by ADMIN_EMAIL.
+	// This avoids granting admin to the public demo credential.
+	if cfg.AdminEmail != "" {
+		if _, err := pool.Exec(ctx,
+			`UPDATE users SET role = 'admin' WHERE lower(email) = lower($1)`, cfg.AdminEmail); err != nil {
+			logger.Error("admin promotion failed", "email", cfg.AdminEmail, "error", err)
+		} else {
+			logger.Info("admin role ensured", "email", cfg.AdminEmail)
+		}
+	}
 
 	app := api.NewApp(pool, cfg)
 	srv := &http.Server{

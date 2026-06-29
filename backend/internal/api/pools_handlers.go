@@ -163,43 +163,48 @@ func (a *App) handleContributePool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
-	var (
-		ownerID  string
-		currency string
-		status   string
-		name     string
-	)
-	err := a.pool.QueryRow(ctx,
-		`SELECT owner_id, currency, status, name FROM pools WHERE id = $1`, id,
-	).Scan(&ownerID, &currency, &status, &name)
-	if errors.Is(err, pgx.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "vaquita no encontrada")
-		return
-	}
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not load pool")
-		return
-	}
-	if status != "open" {
-		writeError(w, http.StatusConflict, "esta vaquita está cerrada")
-		return
-	}
-
-	amountCents := toMinor(req.Amount, currency)
-	txID, err := a.transferToUser(ctx, userID(r), ownerID, currency, amountCents, "Aporte a vaquita: "+name, "pool")
-	if err != nil {
-		writeTransferError(w, err)
-		return
-	}
-
-	if _, err := a.pool.Exec(ctx,
-		`INSERT INTO pool_contributions (pool_id, user_id, amount_cents, tx_id) VALUES ($1, $2, $3, $4)`,
-		id, userID(r), amountCents, txID,
-	); err != nil {
-		writeError(w, http.StatusInternalServerError, "aporte enviado pero no registrado")
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, map[string]any{"status": "ok", "amountCents": amountCents, "currency": currency})
+	contributor := userID(r)
+	// One transaction: lock the pool FOR UPDATE, move the money, and record the
+	// contribution together — no TOCTOU window, and a retried request with an
+	// Idempotency-Key replays instead of contributing twice.
+	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
+		var respAmount int64
+		var respCurrency string
+		err := a.inTx(r.Context(), func(tx pgx.Tx) error {
+			var ownerID, currency, status, name string
+			err := tx.QueryRow(r.Context(),
+				`SELECT owner_id, currency, status, name FROM pools WHERE id = $1 FOR UPDATE`, id,
+			).Scan(&ownerID, &currency, &status, &name)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return errPoolNotFound
+			}
+			if err != nil {
+				return errTransferOther
+			}
+			if status != "open" {
+				return errPoolClosed
+			}
+			amountCents := toMinor(req.Amount, currency)
+			if amountCents <= 0 {
+				return errBadAmount
+			}
+			txID, err := a.transferToUserTx(r.Context(), tx, contributor, ownerID, currency, amountCents, 0, "Aporte a vaquita: "+name, "pool")
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(r.Context(),
+				`INSERT INTO pool_contributions (pool_id, user_id, amount_cents, tx_id) VALUES ($1, $2, $3, $4)`,
+				id, contributor, amountCents, txID,
+			); err != nil {
+				return errTransferOther
+			}
+			respAmount = amountCents
+			respCurrency = currency
+			return nil
+		})
+		if err != nil {
+			return 0, nil, err
+		}
+		return http.StatusCreated, map[string]any{"status": "ok", "amountCents": respAmount, "currency": respCurrency}, nil
+	})
 }

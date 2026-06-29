@@ -119,14 +119,15 @@ func (a *App) handleSendMoney(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	txID, newBalance, err := a.transfer(r.Context(), userID(r), to, currency, amountCents,
-		strings.TrimSpace(req.Description), "transfer")
-	if err != nil {
-		writeTransferError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"id": txID, "amountCents": amountCents, "currency": currency, "newBalance": newBalance,
+	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
+		txID, newBalance, err := a.transfer(r.Context(), userID(r), to, currency, amountCents,
+			strings.TrimSpace(req.Description), "transfer")
+		if err != nil {
+			return 0, nil, err
+		}
+		return http.StatusCreated, map[string]any{
+			"id": txID, "amountCents": amountCents, "currency": currency, "newBalance": newBalance,
+		}, nil
 	})
 }
 
@@ -164,77 +165,72 @@ func (a *App) handleConvert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
 	uid := userID(r)
-	tx, err := a.pool.Begin(ctx)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "database error")
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	// Lock both of the user's accounts.
-	rows, err := tx.Query(ctx,
-		`SELECT id, currency, balance_cents FROM accounts
-		 WHERE user_id = $1 AND currency IN ($2, $3) ORDER BY currency FOR UPDATE`,
-		uid, req.From, req.To)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not load accounts")
-		return
-	}
-	accByCur := map[string]struct {
-		id  string
-		bal int64
-	}{}
-	for rows.Next() {
-		var id, cur string
-		var bal int64
-		if err := rows.Scan(&id, &cur, &bal); err != nil {
-			rows.Close()
-			writeError(w, http.StatusInternalServerError, "could not read accounts")
-			return
+	// Idempotent so a retried/double-submitted conversion replays instead of
+	// converting twice. The money move (both legs + the transactions row) runs
+	// in a single transaction with both accounts locked.
+	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
+		ctx := r.Context()
+		tx, err := a.pool.Begin(ctx)
+		if err != nil {
+			return 0, nil, errTransferOther
 		}
-		accByCur[cur] = struct {
+		defer tx.Rollback(ctx)
+
+		// Lock both of the user's accounts.
+		rows, err := tx.Query(ctx,
+			`SELECT id, currency, balance_cents FROM accounts
+			 WHERE user_id = $1 AND currency IN ($2, $3) ORDER BY currency FOR UPDATE`,
+			uid, req.From, req.To)
+		if err != nil {
+			return 0, nil, errTransferOther
+		}
+		accByCur := map[string]struct {
 			id  string
 			bal int64
-		}{id, bal}
-	}
-	rows.Close()
+		}{}
+		for rows.Next() {
+			var id, cur string
+			var bal int64
+			if err := rows.Scan(&id, &cur, &bal); err != nil {
+				rows.Close()
+				return 0, nil, errTransferOther
+			}
+			accByCur[cur] = struct {
+				id  string
+				bal int64
+			}{id, bal}
+		}
+		rows.Close()
 
-	from, okF := accByCur[req.From]
-	dst, okT := accByCur[req.To]
-	if !okF || !okT {
-		writeError(w, http.StatusInternalServerError, "missing account for currency")
-		return
-	}
-	if from.bal < fromCents {
-		writeError(w, http.StatusBadRequest, "saldo insuficiente")
-		return
-	}
+		from, okF := accByCur[req.From]
+		dst, okT := accByCur[req.To]
+		if !okF || !okT {
+			return 0, nil, errTransferOther
+		}
+		if from.bal < fromCents {
+			return 0, nil, errInsufficient
+		}
 
-	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, fromCents, from.id); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not debit account")
-		return
-	}
-	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, toCentsVal, dst.id); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not credit account")
-		return
-	}
-	desc := "Conversión " + req.From + " → " + req.To
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
-		 VALUES ($1, $2, $3, $4, $5, 'completed', 'conversion')`,
-		from.id, dst.id, fromCents, req.From, desc); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not record conversion")
-		return
-	}
-	if err := tx.Commit(ctx); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not complete conversion")
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"fromCents": fromCents, "toCents": toCentsVal, "rate": rates.Crc,
+		if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, fromCents, from.id); err != nil {
+			return 0, nil, errTransferOther
+		}
+		if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, toCentsVal, dst.id); err != nil {
+			return 0, nil, errTransferOther
+		}
+		desc := "Conversión " + req.From + " → " + req.To
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
+			 VALUES ($1, $2, $3, $4, $5, 'completed', 'conversion')`,
+			from.id, dst.id, fromCents, req.From, desc); err != nil {
+			return 0, nil, errTransferOther
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return 0, nil, errTransferOther
+		}
+		return http.StatusCreated, map[string]any{
+			"fromCents": fromCents, "toCents": toCentsVal, "rate": rates.Crc,
+		}, nil
 	})
 }
 
@@ -248,14 +244,28 @@ var (
 	errTransferOther = errors.New("transfer failed")
 )
 
+// writeTransferError maps every money-path sentinel to an HTTP status. Used by
+// send, SINPE, service payment, cobros, vaquitas and merchant charges.
 func writeTransferError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, errNoRecipient):
 		writeError(w, http.StatusNotFound, "destinatario no encontrado")
+	case errors.Is(err, errReqNotFound):
+		writeError(w, http.StatusNotFound, "cobro no encontrado")
+	case errors.Is(err, errPoolNotFound):
+		writeError(w, http.StatusNotFound, "vaquita no encontrada")
 	case errors.Is(err, errSelfTransfer):
 		writeError(w, http.StatusBadRequest, "no podés enviarte dinero a vos mismo")
 	case errors.Is(err, errInsufficient):
 		writeError(w, http.StatusBadRequest, "saldo insuficiente")
+	case errors.Is(err, errBadAmount):
+		writeError(w, http.StatusBadRequest, "el monto debe ser mayor a cero")
+	case errors.Is(err, errReqNotPayable):
+		writeError(w, http.StatusConflict, "este cobro ya fue pagado o cancelado")
+	case errors.Is(err, errPoolClosed):
+		writeError(w, http.StatusConflict, "esta vaquita está cerrada")
+	case errors.Is(err, errMerchantUnverified):
+		writeError(w, http.StatusForbidden, "el comercio aún no está verificado")
 	default:
 		writeError(w, http.StatusInternalServerError, "no se pudo completar la operación")
 	}
@@ -263,143 +273,87 @@ func writeTransferError(w http.ResponseWriter, err error) {
 
 // transfer moves money from the sender's account to the recipient identified by
 // email/phone, both in the given currency. Returns the new transaction id and
-// the sender's resulting balance.
+// the sender's resulting balance. Runs as a single transaction and records
+// balanced double-entry ledger rows via postPayment.
 func (a *App) transfer(ctx context.Context, senderID, to, currency string, amountCents int64, description, kind string) (string, int64, error) {
-	tx, err := a.pool.Begin(ctx)
-	if err != nil {
-		return "", 0, errTransferOther
-	}
-	defer tx.Rollback(ctx)
-
-	var fromID string
-	var fromBalance int64
-	err = tx.QueryRow(ctx,
-		`SELECT id, balance_cents FROM accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`,
-		senderID, currency,
-	).Scan(&fromID, &fromBalance)
-	if err != nil {
-		return "", 0, errNoSenderAcct
-	}
-
-	toID, toUserID, _, err := resolveRecipientAccount(ctx, tx, to, currency)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", 0, errNoRecipient
-	}
-	if err != nil {
-		return "", 0, errTransferOther
-	}
-	if toUserID == senderID {
-		return "", 0, errSelfTransfer
-	}
-	if fromBalance < amountCents {
-		return "", 0, errInsufficient
-	}
-
-	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, amountCents, fromID); err != nil {
-		return "", 0, errTransferOther
-	}
-	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, amountCents, toID); err != nil {
-		return "", 0, errTransferOther
-	}
 	var txID string
-	if err := tx.QueryRow(ctx,
-		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
-		 VALUES ($1, $2, $3, $4, $5, 'completed', $6) RETURNING id`,
-		fromID, toID, amountCents, currency, description, kind,
-	).Scan(&txID); err != nil {
-		return "", 0, errTransferOther
+	var newBalance int64
+	err := a.inTx(ctx, func(tx pgx.Tx) error {
+		fromID, fromBalance, err := lockAccount(ctx, tx, senderID, currency)
+		if err != nil {
+			return errNoSenderAcct
+		}
+		toID, toUserID, _, err := resolveRecipientAccount(ctx, tx, to, currency)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errNoRecipient
+		}
+		if err != nil {
+			return errTransferOther
+		}
+		if toUserID == senderID {
+			return errSelfTransfer
+		}
+		if fromBalance < amountCents {
+			return errInsufficient
+		}
+		id, err := a.postPayment(ctx, tx, fromID, toID, currency, amountCents, 0, description, kind)
+		if err != nil {
+			return errTransferOther
+		}
+		txID = id
+		newBalance = fromBalance - amountCents
+		return nil
+	})
+	if err != nil {
+		return "", 0, err
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return "", 0, errTransferOther
-	}
-	return txID, fromBalance - amountCents, nil
+	return txID, newBalance, nil
 }
 
 // transferToUser moves money from sender to a known recipient user id (used by
-// paid requests and pool contributions). Returns the transaction id.
+// paid requests and pool contributions). Returns the transaction id. The
+// per-tx variant transferToUserTx (ledger.go) lets callers move money and
+// update business rows atomically.
 func (a *App) transferToUser(ctx context.Context, senderID, recipientID, currency string, amountCents int64, description, kind string) (string, error) {
-	if recipientID == senderID {
-		return "", errSelfTransfer
-	}
-	tx, err := a.pool.Begin(ctx)
-	if err != nil {
-		return "", errTransferOther
-	}
-	defer tx.Rollback(ctx)
-
-	var fromID string
-	var fromBalance int64
-	if err := tx.QueryRow(ctx,
-		`SELECT id, balance_cents FROM accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`,
-		senderID, currency,
-	).Scan(&fromID, &fromBalance); err != nil {
-		return "", errNoSenderAcct
-	}
-
-	var toID string
-	if err := tx.QueryRow(ctx,
-		`SELECT id FROM accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`,
-		recipientID, currency,
-	).Scan(&toID); err != nil {
-		return "", errNoRecipient
-	}
-	if fromBalance < amountCents {
-		return "", errInsufficient
-	}
-
-	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, amountCents, fromID); err != nil {
-		return "", errTransferOther
-	}
-	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, amountCents, toID); err != nil {
-		return "", errTransferOther
-	}
 	var txID string
-	if err := tx.QueryRow(ctx,
-		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
-		 VALUES ($1, $2, $3, $4, $5, 'completed', $6) RETURNING id`,
-		fromID, toID, amountCents, currency, description, kind,
-	).Scan(&txID); err != nil {
-		return "", errTransferOther
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return "", errTransferOther
-	}
-	return txID, nil
+	err := a.inTx(ctx, func(tx pgx.Tx) error {
+		id, err := a.transferToUserTx(ctx, tx, senderID, recipientID, currency, amountCents, 0, description, kind)
+		txID = id
+		return err
+	})
+	return txID, err
 }
 
 // payOut debits the user's wallet for an outgoing payment with no internal
 // recipient (e.g. a utility bill). Records a transaction with to_account = NULL.
+// External settlements are not ledgered (no internal counterpart); balances
+// remain the source of truth.
 func (a *App) payOut(ctx context.Context, senderID, currency string, amountCents int64, description, kind string) (string, int64, error) {
-	tx, err := a.pool.Begin(ctx)
-	if err != nil {
-		return "", 0, errTransferOther
-	}
-	defer tx.Rollback(ctx)
-
-	var fromID string
-	var fromBalance int64
-	if err := tx.QueryRow(ctx,
-		`SELECT id, balance_cents FROM accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`,
-		senderID, currency,
-	).Scan(&fromID, &fromBalance); err != nil {
-		return "", 0, errNoSenderAcct
-	}
-	if fromBalance < amountCents {
-		return "", 0, errInsufficient
-	}
-	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, amountCents, fromID); err != nil {
-		return "", 0, errTransferOther
-	}
 	var txID string
-	if err := tx.QueryRow(ctx,
-		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
-		 VALUES ($1, NULL, $2, $3, $4, 'completed', $5) RETURNING id`,
-		fromID, amountCents, currency, description, kind,
-	).Scan(&txID); err != nil {
-		return "", 0, errTransferOther
+	var newBalance int64
+	err := a.inTx(ctx, func(tx pgx.Tx) error {
+		fromID, fromBalance, err := lockAccount(ctx, tx, senderID, currency)
+		if err != nil {
+			return errNoSenderAcct
+		}
+		if fromBalance < amountCents {
+			return errInsufficient
+		}
+		if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, amountCents, fromID); err != nil {
+			return errTransferOther
+		}
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
+			 VALUES ($1, NULL, $2, $3, $4, 'completed', $5) RETURNING id`,
+			fromID, amountCents, currency, description, kind,
+		).Scan(&txID); err != nil {
+			return errTransferOther
+		}
+		newBalance = fromBalance - amountCents
+		return nil
+	})
+	if err != nil {
+		return "", 0, err
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return "", 0, errTransferOther
-	}
-	return txID, fromBalance - amountCents, nil
+	return txID, newBalance, nil
 }

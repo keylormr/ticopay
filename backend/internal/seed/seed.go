@@ -31,8 +31,12 @@ const demoPassword = "password123"
 
 // Run seeds demo data (idempotent: skips if any user already exists).
 func Run(ctx context.Context, pool *pgxpool.Pool) error {
+	// Skip if real users already exist. The reserved fees system user
+	// (migration 0012) must not count, or a fresh DB would never seed (and would
+	// never get a demo admin).
 	var count int
-	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
+	if err := pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM users WHERE id <> '00000000-0000-0000-0000-0000000000fe'`).Scan(&count); err != nil {
 		return fmt.Errorf("count users: %w", err)
 	}
 	if count > 0 {
@@ -87,6 +91,16 @@ func Run(ctx context.Context, pool *pgxpool.Pool) error {
 				 VALUES ($1, $2, 1200000, 'CRC', 'Almuerzo del viernes 🌮')`,
 				carlos, maria)
 		}
+	}
+
+	// Promote the demo account to admin and give it a verified demo merchant so
+	// the commerce and admin flows aren't empty on a fresh database.
+	if maria, ok := ids["maria@ticopay.cr"]; ok {
+		_, _ = pool.Exec(ctx, `UPDATE users SET role = 'admin' WHERE id = $1`, maria)
+		_, _ = pool.Exec(ctx,
+			`INSERT INTO merchants (owner_id, name, category, legal_name, id_type, id_number, status, commission_bps)
+			 VALUES ($1, 'Soda La Esquina', 'restaurante', 'María Jiménez', 'fisica', '102340567', 'verified', 50)`,
+			maria)
 	}
 
 	fmt.Printf("[seed] created %d demo users (password: %s)\n", len(demoUsers), demoPassword)

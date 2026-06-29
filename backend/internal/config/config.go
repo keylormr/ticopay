@@ -18,6 +18,7 @@ type Config struct {
 	ResendAPIKey  string // empty → dev log sender (no real emails)
 	ResendFrom    string // verified sender, e.g. "Tico Pay <no-reply@tudominio.cr>"
 	EmailDebug    bool   // EMAIL_DEBUG: dev log sender prints links. Never in prod.
+	AdminEmail    string // ADMIN_EMAIL: promoted to the admin role on startup (prod admin bootstrap)
 }
 
 func Load() Config {
@@ -33,6 +34,7 @@ func Load() Config {
 		ResendAPIKey:  env("RESEND_API_KEY", ""),
 		ResendFrom:    env("RESEND_FROM", "onboarding@resend.dev"),
 		EmailDebug:    env("EMAIL_DEBUG", "") == "true",
+		AdminEmail:    env("ADMIN_EMAIL", ""),
 	}
 }
 
