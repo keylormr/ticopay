@@ -112,6 +112,19 @@ func TestTransferMovesMoneyAndLedgerBalances(t *testing.T) {
 	}
 }
 
+// feesBalance returns the SYSTEM:FEES balance for a currency (0 if the account
+// doesn't exist yet). SYSTEM:FEES is shared across tests, so assert deltas.
+func feesBalance(t *testing.T, pool *pgxpool.Pool, currency string) int64 {
+	t.Helper()
+	var b int64
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COALESCE(SUM(balance_cents), 0) FROM accounts WHERE user_id = $1 AND currency = $2`,
+		sysFeesUserID, currency).Scan(&b); err != nil {
+		t.Fatalf("fees balance: %v", err)
+	}
+	return b
+}
+
 func TestInsufficientFundsRollsBack(t *testing.T) {
 	pool := testDB(t)
 	a := &App{pool: pool}
@@ -201,6 +214,7 @@ func TestMerchantCommissionSplit(t *testing.T) {
 		t.Fatalf("create merchant charge: %v", err)
 	}
 
+	feesBefore := feesBalance(t, pool, "CRC")
 	if rec := payCobro(t, a, payer, reqID); rec.Code != http.StatusOK {
 		t.Fatalf("merchant pay: status %d, body %s", rec.Code, rec.Body.String())
 	}
@@ -212,8 +226,9 @@ func TestMerchantCommissionSplit(t *testing.T) {
 	if got := balanceOf(t, pool, owner, "CRC"); got != 99_500 {
 		t.Fatalf("merchant net = %d, want 99500", got)
 	}
-	if got := balanceOf(t, pool, sysFeesUserID, "CRC"); got != 500 {
-		t.Fatalf("SYSTEM:FEES = %d, want 500", got)
+	// SYSTEM:FEES is shared across tests, so assert the delta from this payment.
+	if got := feesBalance(t, pool, "CRC") - feesBefore; got != 500 {
+		t.Fatalf("SYSTEM:FEES delta = %d, want 500", got)
 	}
 }
 
