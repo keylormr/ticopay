@@ -10,6 +10,8 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.1
+	github.com/pquerna/otp v1.5.0
+	github.com/resend/resend-go/v3 v3.9.2
 	golang.org/x/crypto v0.52.0
 )
 
@@ -24,8 +26,6 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
-	github.com/pquerna/otp v1.5.0 // indirect
-	github.com/resend/resend-go/v3 v3.9.2 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect

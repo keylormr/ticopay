@@ -149,6 +149,9 @@ func (a *App) Router() http.Handler {
 				r.With(a.requirePerm(permReportsView)).Get("/reports/ledger-health", a.handleReportLedgerHealth)
 				r.With(a.requirePerm(permReportsView)).Get("/reports/transactions", a.handleReportTransactions)
 				r.With(a.requirePerm(permReportsView)).Get("/reports/transactions.csv", a.handleReportTransactionsCSV)
+
+				// Audit trail of back-office actions (read-only).
+				r.With(a.requirePerm(permReportsView)).Get("/audit", a.handleAdminAuditLog)
 			})
 
 			// Passkey management (requires an active session).

@@ -138,8 +138,8 @@ func (a *App) handleAdminCreateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "rol no válido")
 		return
 	}
-	if len(req.Password) < 8 {
-		writeError(w, http.StatusBadRequest, "la contraseña debe tener al menos 8 caracteres")
+	if msg := validateStaffPassword(req.Password); msg != "" {
+		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
 	if strings.HasSuffix(req.Email, "@system.ticopay") {
@@ -186,6 +186,11 @@ func (a *App) handleAdminCreateUser(w http.ResponseWriter, r *http.Request) {
 		 SELECT $1, code, 0 FROM unnest($2::text[]) AS code`, u.ID, allCurrencyCodes(),
 	); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create accounts")
+		return
+	}
+	if err := auditTx(ctx, tx, userID(r), auditUserCreate, u.ID,
+		map[string]any{"email": u.Email, "role": u.Role}); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not create user")
 		return
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -244,7 +249,8 @@ func (a *App) handleAdminSetRole(w http.ResponseWriter, r *http.Request) {
 		if _, e := tx.Exec(ctx, `UPDATE users SET role = $2 WHERE id = $1 AND `+systemEmailFilter, id, req.Role); e != nil {
 			return errTransferOther
 		}
-		return nil
+		return auditTx(ctx, tx, userID(r), auditUserSetRole, id,
+			map[string]any{"role": req.Role, "previous": curRole})
 	})
 	writeAdminResult(w, err, map[string]any{"role": req.Role})
 }
@@ -313,7 +319,8 @@ func (a *App) handleAdminSetStatus(w http.ResponseWriter, r *http.Request) {
 			id, req.Disabled, bump); e != nil {
 			return errTransferOther
 		}
-		return nil
+		return auditTx(ctx, tx, userID(r), auditUserSetStatus, id,
+			map[string]any{"disabled": req.Disabled})
 	})
 	writeAdminResult(w, err, map[string]any{"disabled": req.Disabled})
 }

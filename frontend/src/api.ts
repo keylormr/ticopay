@@ -176,6 +176,16 @@ export interface TxReportRow {
   description: string
 }
 
+export interface AuditEntry {
+  id: number
+  action: string
+  target: string
+  detail: Record<string, unknown>
+  createdAt: string
+  actorEmail: string
+  actorName: string
+}
+
 export interface AuthResult {
   accessToken: string
   refreshToken: string
@@ -518,6 +528,17 @@ export const api = {
     link.click()
     link.remove()
     URL.revokeObjectURL(objectUrl)
+  },
+
+  // --- admin: audit trail ---
+  adminAuditLog(params: { action?: string; limit?: number; offset?: number } = {}) {
+    const qs = new URLSearchParams()
+    if (params.action) qs.set('action', params.action)
+    if (params.limit != null) qs.set('limit', String(params.limit))
+    if (params.offset != null) qs.set('offset', String(params.offset))
+    return request<{ entries: AuditEntry[]; total: number; limit: number; offset: number }>(
+      `/api/admin/audit?${qs.toString()}`,
+    )
   },
 }
 

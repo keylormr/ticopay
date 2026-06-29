@@ -4,8 +4,9 @@ import { useI18n } from '../i18n'
 import { Reportes } from './admin/Reportes'
 import { Usuarios } from './admin/Usuarios'
 import { ComerciosAdmin } from './admin/ComerciosAdmin'
+import { Auditoria } from './admin/Auditoria'
 
-type Sub = 'reportes' | 'usuarios' | 'comercios'
+type Sub = 'reportes' | 'usuarios' | 'comercios' | 'auditoria'
 
 // Admin is the back-office container. Sub-tabs are shown per capability; the
 // server still enforces every endpoint, so hiding a tab is UX only.
@@ -16,6 +17,7 @@ export function Admin({ caps }: { caps: Capabilities }) {
       { id: 'reportes', show: caps.reports },
       { id: 'usuarios', show: caps.backoffice },
       { id: 'comercios', show: caps.backoffice },
+      { id: 'auditoria', show: caps.reports },
     ] as { id: Sub; show: boolean }[]
   ).filter((x) => x.show)
 
@@ -33,6 +35,7 @@ export function Admin({ caps }: { caps: Capabilities }) {
       {sub === 'reportes' && caps.reports && <Reportes />}
       {sub === 'usuarios' && caps.backoffice && <Usuarios caps={caps} />}
       {sub === 'comercios' && caps.backoffice && <ComerciosAdmin caps={caps} />}
+      {sub === 'auditoria' && caps.reports && <Auditoria />}
     </div>
   )
 }

@@ -1,10 +1,12 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 
 	"ticopay/backend/internal/models"
 )
@@ -48,9 +50,21 @@ func (a *App) handleAdminListMerchants(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"merchants": list})
 }
 
-// handleAdminVerifyMerchant approves a merchant so it can start charging.
+// handleAdminVerifyMerchant approves a merchant so it can start charging. The
+// approval and its audit row commit atomically.
 func (a *App) handleAdminVerifyMerchant(w http.ResponseWriter, r *http.Request) {
-	a.adminUpdateMerchant(w, r, `UPDATE merchants SET status = 'verified', reject_reason = '' WHERE id = $1`)
+	id := chi.URLParam(r, "id")
+	err := a.inTx(r.Context(), func(tx pgx.Tx) error {
+		ct, e := tx.Exec(r.Context(), `UPDATE merchants SET status = 'verified', reject_reason = '' WHERE id = $1`, id)
+		if e != nil {
+			return errTransferOther
+		}
+		if ct.RowsAffected() == 0 {
+			return errReqNotFound
+		}
+		return auditTx(r.Context(), tx, userID(r), auditMerchantVerify, id, nil)
+	})
+	writeMerchantResult(w, err, map[string]any{"status": "verified"})
 }
 
 // handleAdminRejectMerchant rejects a merchant with a reason.
@@ -60,18 +74,19 @@ func (a *App) handleAdminRejectMerchant(w http.ResponseWriter, r *http.Request) 
 	}
 	_ = decodeJSON(r, &req)
 	id := chi.URLParam(r, "id")
-	ct, err := a.pool.Exec(r.Context(),
-		`UPDATE merchants SET status = 'rejected', reject_reason = $2 WHERE id = $1`,
-		id, strings.TrimSpace(req.Reason))
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not update merchant")
-		return
-	}
-	if ct.RowsAffected() == 0 {
-		writeError(w, http.StatusNotFound, "comercio no encontrado")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"status": "rejected"})
+	reason := strings.TrimSpace(req.Reason)
+	err := a.inTx(r.Context(), func(tx pgx.Tx) error {
+		ct, e := tx.Exec(r.Context(),
+			`UPDATE merchants SET status = 'rejected', reject_reason = $2 WHERE id = $1`, id, reason)
+		if e != nil {
+			return errTransferOther
+		}
+		if ct.RowsAffected() == 0 {
+			return errReqNotFound
+		}
+		return auditTx(r.Context(), tx, userID(r), auditMerchantReject, id, map[string]any{"reason": reason})
+	})
+	writeMerchantResult(w, err, map[string]any{"status": "rejected"})
 }
 
 // handleAdminSetCommission adjusts a merchant's commission (basis points).
@@ -88,29 +103,27 @@ func (a *App) handleAdminSetCommission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := chi.URLParam(r, "id")
-	ct, err := a.pool.Exec(r.Context(),
-		`UPDATE merchants SET commission_bps = $2 WHERE id = $1`, id, req.Bps)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not update commission")
-		return
-	}
-	if ct.RowsAffected() == 0 {
-		writeError(w, http.StatusNotFound, "comercio no encontrado")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"commissionBps": req.Bps})
+	err := a.inTx(r.Context(), func(tx pgx.Tx) error {
+		ct, e := tx.Exec(r.Context(), `UPDATE merchants SET commission_bps = $2 WHERE id = $1`, id, req.Bps)
+		if e != nil {
+			return errTransferOther
+		}
+		if ct.RowsAffected() == 0 {
+			return errReqNotFound
+		}
+		return auditTx(r.Context(), tx, userID(r), auditMerchantCommission, id, map[string]any{"bps": req.Bps})
+	})
+	writeMerchantResult(w, err, map[string]any{"commissionBps": req.Bps})
 }
 
-func (a *App) adminUpdateMerchant(w http.ResponseWriter, r *http.Request, sql string) {
-	id := chi.URLParam(r, "id")
-	ct, err := a.pool.Exec(r.Context(), sql, id)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not update merchant")
-		return
-	}
-	if ct.RowsAffected() == 0 {
+// writeMerchantResult maps a merchant-mutation tx outcome to an HTTP response.
+func writeMerchantResult(w http.ResponseWriter, err error, ok map[string]any) {
+	switch {
+	case err == nil:
+		writeJSON(w, http.StatusOK, ok)
+	case errors.Is(err, errReqNotFound):
 		writeError(w, http.StatusNotFound, "comercio no encontrado")
-		return
+	default:
+		writeError(w, http.StatusInternalServerError, "could not update merchant")
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"status": "verified"})
 }

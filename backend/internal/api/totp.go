@@ -5,10 +5,58 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 )
+
+// totpPeriod is the TOTP time-step in seconds (the pquerna/otp default).
+const totpPeriod = 30
+
+// matchTOTPPeriod reports the 30-second period index a code validates against,
+// scanning the same ±1 skew window totp.Validate uses. The period is what we
+// persist for anti-replay. ok is false when the code matches no period.
+func matchTOTPPeriod(code, secret string) (int64, bool) {
+	base := time.Now().Unix() / totpPeriod
+	for _, c := range []int64{base, base - 1, base + 1} {
+		ok, err := totp.ValidateCustom(code, secret, time.Unix(c*totpPeriod, 0), totp.ValidateOpts{
+			Period:    totpPeriod,
+			Skew:      0,
+			Digits:    otp.DigitsSix,
+			Algorithm: otp.AlgorithmSHA1,
+		})
+		if err == nil && ok {
+			return c, true
+		}
+	}
+	return 0, false
+}
+
+// validateTOTPConsume validates a code against the user's secret and, on
+// success, atomically records the matched period so the same code can't be
+// replayed within its validity window. Returns true only if the code is valid
+// AND its period is strictly newer than the last one consumed; a replay (same
+// or older period) loses the conditional UPDATE and returns false.
+func (a *App) validateTOTPConsume(ctx context.Context, uid, code, secret string) (bool, error) {
+	code = normalizeTotpCode(code)
+	if code == "" {
+		return false, nil
+	}
+	period, ok := matchTOTPPeriod(code, secret)
+	if !ok {
+		return false, nil
+	}
+	ct, err := a.pool.Exec(ctx,
+		`UPDATE user_totp SET last_used_period = $2
+		 WHERE user_id = $1 AND (last_used_period IS NULL OR last_used_period < $2)`,
+		uid, period)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() == 1, nil
+}
 
 // TOTP 2FA (authenticator apps) as an alternative to passkeys. Setup stores
 // an unconfirmed secret; only after the user proves a valid code does it
@@ -100,7 +148,12 @@ func (a *App) handleTotpConfirm(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "database error")
 		return
 	}
-	if !totp.Validate(normalizeTotpCode(req.Code), secret) {
+	valid, err := a.validateTOTPConsume(ctx, uid, req.Code, secret)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "database error")
+		return
+	}
+	if !valid {
 		writeError(w, http.StatusUnauthorized, "código 2FA inválido")
 		return
 	}
@@ -136,7 +189,12 @@ func (a *App) handleTotpDisable(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
-	if !totp.Validate(normalizeTotpCode(req.Code), secret) {
+	valid, err := a.validateTOTPConsume(ctx, uid, req.Code, secret)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "database error")
+		return
+	}
+	if !valid {
 		writeError(w, http.StatusUnauthorized, "código 2FA inválido")
 		return
 	}

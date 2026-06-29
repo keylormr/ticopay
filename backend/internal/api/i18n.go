@@ -91,6 +91,16 @@ var errsEN = map[string]string{
 	"no se pudo cargar el usuario": "couldn't load the user",
 
 	"aporte enviado pero no registrado": "contribution sent but not recorded",
+
+	// Back-office (roles, staff, merchants, audit).
+	"rol no válido": "invalid role",
+	"la contraseña del personal debe tener al menos 10 caracteres": "staff passwords must be at least 10 characters",
+	"la contraseña debe combinar letras y números":                 "the password must combine letters and numbers",
+	"comercio no encontrado":                                       "merchant not found",
+	"la comisión debe estar entre 0 y 10000 puntos básicos":        "the commission must be between 0 and 10000 basis points",
+	"cuenta desactivada":                                           "account deactivated",
+	"correo reservado":                                             "reserved email",
+	"no autorizado":                                                "not authorized",
 }
 
 // errsES maps the technical English fallback messages (mostly 500s, which were
@@ -127,6 +137,9 @@ var errsES = map[string]string{
 	"could not load contributions":             "no se pudieron cargar los aportes",
 	"could not read contributions":             "no se pudieron leer los aportes",
 	"payment recorded but request not updated": "el pago se registró pero el cobro no se actualizó",
+	"could not update merchant":                "no se pudo actualizar el comercio",
+	"could not load audit log":                 "no se pudo cargar la bitácora",
+	"could not read audit log":                 "no se pudo leer la bitácora",
 }
 
 // localizeError returns the message in the writer's language. Friendly copy is

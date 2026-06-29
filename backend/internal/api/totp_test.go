@@ -45,3 +45,39 @@ func TestTotpRoundTrip(t *testing.T) {
 		t.Fatalf("10-minute-old code validated")
 	}
 }
+
+// matchTOTPPeriod must return the current 30s period for a fresh code, and a
+// monotonically increasing period as time advances — that ordering is what the
+// anti-replay UPDATE relies on to reject a re-used code.
+func TestMatchTOTPPeriod(t *testing.T) {
+	key, err := totp.Generate(totp.GenerateOpts{Issuer: "Tico Pay", AccountName: "replay@ticopay.cr"})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	now := time.Now()
+	code, err := totp.GenerateCode(key.Secret(), now)
+	if err != nil {
+		t.Fatalf("GenerateCode: %v", err)
+	}
+	period, ok := matchTOTPPeriod(code, key.Secret())
+	if !ok {
+		t.Fatalf("fresh code did not match any period")
+	}
+	if want := now.Unix() / totpPeriod; period != want {
+		t.Fatalf("matched period = %d, want %d (current step)", period, want)
+	}
+
+	// A code generated two steps in the future must map to a strictly greater
+	// period — never the same one, so it can't be confused with a replay.
+	future := now.Add(2 * totpPeriod * time.Second)
+	fcode, _ := totp.GenerateCode(key.Secret(), future)
+	fperiod, fok := matchTOTPPeriod(fcode, key.Secret())
+	if fok && fperiod <= period {
+		t.Fatalf("future period %d not greater than current %d", fperiod, period)
+	}
+
+	// Garbage never matches.
+	if _, ok := matchTOTPPeriod("000000", "not-a-secret"); ok {
+		t.Fatalf("invalid code/secret matched a period")
+	}
+}

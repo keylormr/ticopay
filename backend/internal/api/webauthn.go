@@ -295,12 +295,12 @@ func (a *App) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Request) {
 	}
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 
+	// Anti-enumeration: an unknown account and a known account without a passkey
+	// return the identical 400, so this endpoint can't be used to probe which
+	// emails are registered. (A registered account WITH a passkey necessarily
+	// gets a challenge — that's inherent to passkey login and unavoidable.)
 	user, _, err := a.loadWAUserByEmail(r.Context(), email)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "no encontramos esa cuenta")
-		return
-	}
-	if len(user.creds) == 0 {
+	if err != nil || len(user.creds) == 0 {
 		writeError(w, http.StatusBadRequest, "esta cuenta no tiene llave de acceso")
 		return
 	}

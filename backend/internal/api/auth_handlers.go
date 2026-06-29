@@ -8,7 +8,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/pquerna/otp/totp"
 
 	"ticopay/backend/internal/auth"
 	"ticopay/backend/internal/models"
@@ -186,7 +185,12 @@ func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusPreconditionRequired, "se requiere el código 2FA")
 			return
 		}
-		if !totp.Validate(normalizeTotpCode(req.TotpCode), secret) {
+		valid, err := a.validateTOTPConsume(ctx, u.ID, req.TotpCode, secret)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "database error")
+			return
+		}
+		if !valid {
 			loginAttempts.fail(req.Email)
 			writeError(w, http.StatusUnauthorized, "código 2FA inválido")
 			return
@@ -216,9 +220,14 @@ func (a *App) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Reject refresh tokens minted before a credential change (e.g. password
-	// reset bumped token_version). This is what evicts a stolen session.
-	ver, err := a.tokenVersion(r.Context(), claims.UserID)
-	if err != nil || ver != claims.Ver {
+	// reset bumped token_version) — this evicts a stolen session — and refuse
+	// to refresh a deactivated account (defense in depth alongside the
+	// token_version bump that disabling performs).
+	var ver int
+	var disabled bool
+	if err := a.pool.QueryRow(r.Context(),
+		`SELECT token_version, disabled FROM users WHERE id = $1`, claims.UserID,
+	).Scan(&ver, &disabled); err != nil || ver != claims.Ver || disabled {
 		writeError(w, http.StatusUnauthorized, "invalid or expired refresh token")
 		return
 	}
