@@ -56,7 +56,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccounts(res.accounts)
   }
 
-  function logout() {
+  async function logout() {
+    // Revoke all sessions server-side first (best-effort), then clear locally.
+    // If the call fails (offline, expired token) we still log out on the client.
+    try {
+      await api.logout()
+    } catch {
+      // ignore — local logout proceeds regardless
+    }
     tokens.clear()
     setUser(null)
     setAccounts([])

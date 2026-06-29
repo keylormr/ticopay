@@ -140,6 +140,7 @@ var errsES = map[string]string{
 	"could not update merchant":                "no se pudo actualizar el comercio",
 	"could not load audit log":                 "no se pudo cargar la bitácora",
 	"could not read audit log":                 "no se pudo leer la bitácora",
+	"could not log out":                        "no se pudo cerrar la sesión",
 }
 
 // localizeError returns the message in the writer's language. Friendly copy is

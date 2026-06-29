@@ -99,6 +99,7 @@ func (a *App) Router() http.Handler {
 			))
 
 			r.Get("/me", a.handleMe)
+			r.Post("/auth/logout", a.handleLogout)
 			r.Get("/transactions", a.handleListTransactions)
 			r.Post("/transactions", a.handleSendMoney)
 			r.Post("/sinpe", a.handleSinpe)

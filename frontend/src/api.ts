@@ -282,6 +282,11 @@ export const api = {
   me() {
     return request<{ user: User; accounts: Account[] }>('/api/me')
   },
+  logout() {
+    // Revokes every session server-side (bumps token_version). Best-effort:
+    // the client clears its local tokens regardless of the response.
+    return request<{ status: string }>('/api/auth/logout', { method: 'POST', body: '{}' }, false)
+  },
   forgotPassword(email: string) {
     return request<{ status: string }>('/api/auth/forgot', { method: 'POST', body: body({ email }) }, false)
   },

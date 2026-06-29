@@ -241,3 +241,17 @@ func (a *App) handleRefresh(w http.ResponseWriter, r *http.Request) {
 		"refreshToken": refresh,
 	})
 }
+
+// handleLogout revokes every active session of the caller by bumping their
+// token_version: all previously issued access and refresh tokens stop
+// validating (requireAuth/refresh compare the token's generation against the
+// stored one). Authenticated route, so the bump runs after this request's own
+// token has already been verified.
+func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if _, err := a.pool.Exec(r.Context(),
+		`UPDATE users SET token_version = token_version + 1 WHERE id = $1`, userID(r)); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not log out")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}

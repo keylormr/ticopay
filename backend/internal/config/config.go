@@ -34,7 +34,7 @@ func Load() Config {
 		DatabaseURL:   env("DATABASE_URL", "postgres://ticopay:ticopay_dev@localhost:5433/ticopay?sslmode=disable"),
 		JWTSecret:     env("JWT_SECRET", DefaultJWTSecret),
 		AccessTTL:     15 * time.Minute,
-		RefreshTTL:    7 * 24 * time.Hour,
+		RefreshTTL:    48 * time.Hour, // short refresh window limits the value of a stolen/leaked refresh token
 		CORSOrigins:   splitCSV(env("CORS_ORIGINS", "http://localhost:5174")),
 		RunMigrations: env("RUN_MIGRATIONS", "true") == "true",
 		SeedDemo:      env("SEED_DEMO", "true") == "true",
