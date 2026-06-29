@@ -7,9 +7,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// sysFeesUserID is the reserved system user (see migration 0012) that owns the
-// platform fee accounts. Commission credits land here.
-const sysFeesUserID = "00000000-0000-0000-0000-0000000000fe"
+// Reserved system users that own the platform's internal accounts (migrations
+// 0012, 0016). They never log in; their balances may be negative (signed
+// FX/clearing positions), exempt from the non-negative trigger via is_system.
+const (
+	sysFeesUserID     = "00000000-0000-0000-0000-0000000000fe" // commission credits (SYSTEM:FEES)
+	sysClearingUserID = "00000000-0000-0000-0000-0000000000c1" // external settlements (SYSTEM:CLEARING)
+	sysFXUserID       = "00000000-0000-0000-0000-0000000000f1" // FX position for conversions (SYSTEM:FX)
+)
 
 var (
 	errReqNotFound        = errors.New("request not found")
@@ -49,12 +54,12 @@ func lockAccount(ctx context.Context, tx pgx.Tx, userID, currency string) (id st
 }
 
 // ensureSystemAccount returns the system user's account id for a currency,
-// creating it on first use. The DO UPDATE no-op lets RETURNING fire on conflict.
+// creating it (flagged is_system) on first use.
 func ensureSystemAccount(ctx context.Context, tx pgx.Tx, sysUserID, currency string) (string, error) {
 	var id string
 	err := tx.QueryRow(ctx,
-		`INSERT INTO accounts (user_id, currency, balance_cents) VALUES ($1, $2, 0)
-		 ON CONFLICT (user_id, currency) DO UPDATE SET currency = EXCLUDED.currency
+		`INSERT INTO accounts (user_id, currency, balance_cents, is_system) VALUES ($1, $2, 0, true)
+		 ON CONFLICT (user_id, currency) DO UPDATE SET is_system = true
 		 RETURNING id`,
 		sysUserID, currency,
 	).Scan(&id)
@@ -153,4 +158,129 @@ func (a *App) transferToUserTx(ctx context.Context, tx pgx.Tx, senderID, recipie
 		return "", errInsufficient
 	}
 	return a.postPayment(ctx, tx, fromID, toID, currency, amount, fee, description, kind)
+}
+
+// postExternalTx settles money leaving the platform (a bill/service payment with
+// no internal recipient): it debits the payer and credits SYSTEM:CLEARING,
+// recording one transactions row (to_account NULL) plus balanced ledger entries.
+// The caller must have locked fromAccID and checked its balance.
+func (a *App) postExternalTx(ctx context.Context, tx pgx.Tx, fromAccID, currency string, amount int64, description, kind string) (string, error) {
+	if amount <= 0 {
+		return "", errTransferOther
+	}
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, amount, fromAccID); err != nil {
+		return "", err
+	}
+	clearingID, err := ensureSystemAccount(ctx, tx, sysClearingUserID, currency)
+	if err != nil {
+		return "", err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, amount, clearingID); err != nil {
+		return "", err
+	}
+	var txID string
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
+		 VALUES ($1, NULL, $2, $3, $4, 'completed', $5) RETURNING id`,
+		fromAccID, amount, currency, description, kind,
+	).Scan(&txID); err != nil {
+		return "", err
+	}
+	if err := insertLedger(ctx, tx, txID, fromAccID, currency, -amount); err != nil {
+		return "", err
+	}
+	if err := insertLedger(ctx, tx, txID, clearingID, currency, amount); err != nil {
+		return "", err
+	}
+	return txID, nil
+}
+
+// postConversionTx settles a same-user cross-currency conversion as a balanced
+// double-entry against the SYSTEM:FX position: the user debits fromCents in the
+// source currency and credits toCents in the target currency, with the FX desk
+// taking the source and giving the target. Each currency nets to zero, so the
+// ledger stays reconcilable. Locks both of the user's accounts.
+func (a *App) postConversionTx(ctx context.Context, tx pgx.Tx, userID, fromCur, toCur string, fromCents, toCents int64, description string) (string, error) {
+	if fromCents <= 0 || toCents <= 0 {
+		return "", errBadAmount
+	}
+	rows, err := tx.Query(ctx,
+		`SELECT id, currency, balance_cents FROM accounts
+		 WHERE user_id = $1 AND currency IN ($2, $3) ORDER BY currency FOR UPDATE`,
+		userID, fromCur, toCur)
+	if err != nil {
+		return "", errTransferOther
+	}
+	acc := map[string]struct {
+		id  string
+		bal int64
+	}{}
+	for rows.Next() {
+		var id, cur string
+		var bal int64
+		if err := rows.Scan(&id, &cur, &bal); err != nil {
+			rows.Close()
+			return "", errTransferOther
+		}
+		acc[cur] = struct {
+			id  string
+			bal int64
+		}{id, bal}
+	}
+	rows.Close()
+
+	from, okF := acc[fromCur]
+	to, okT := acc[toCur]
+	if !okF || !okT {
+		return "", errTransferOther
+	}
+	if from.bal < fromCents {
+		return "", errInsufficient
+	}
+
+	fxFrom, err := ensureSystemAccount(ctx, tx, sysFXUserID, fromCur)
+	if err != nil {
+		return "", err
+	}
+	fxTo, err := ensureSystemAccount(ctx, tx, sysFXUserID, toCur)
+	if err != nil {
+		return "", err
+	}
+
+	// User: -fromCents (F), +toCents (T). FX desk: +fromCents (F), -toCents (T).
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, fromCents, from.id); err != nil {
+		return "", err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, toCents, to.id); err != nil {
+		return "", err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, fromCents, fxFrom); err != nil {
+		return "", err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, toCents, fxTo); err != nil {
+		return "", err
+	}
+
+	var txID string
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
+		 VALUES ($1, $2, $3, $4, $5, 'completed', 'conversion') RETURNING id`,
+		from.id, to.id, fromCents, fromCur, description,
+	).Scan(&txID); err != nil {
+		return "", err
+	}
+	// Balanced per currency: F → (-from, +from); T → (+to, -to).
+	if err := insertLedger(ctx, tx, txID, from.id, fromCur, -fromCents); err != nil {
+		return "", err
+	}
+	if err := insertLedger(ctx, tx, txID, fxFrom, fromCur, fromCents); err != nil {
+		return "", err
+	}
+	if err := insertLedger(ctx, tx, txID, to.id, toCur, toCents); err != nil {
+		return "", err
+	}
+	if err := insertLedger(ctx, tx, txID, fxTo, toCur, -toCents); err != nil {
+		return "", err
+	}
+	return txID, nil
 }

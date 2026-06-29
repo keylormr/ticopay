@@ -167,69 +167,20 @@ func (a *App) handleConvert(w http.ResponseWriter, r *http.Request) {
 
 	uid := userID(r)
 	// Idempotent so a retried/double-submitted conversion replays instead of
-	// converting twice. The money move (both legs + the transactions row) runs
-	// in a single transaction with both accounts locked.
+	// converting twice. postConversionTx posts the balanced FX double-entry.
 	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
-		ctx := r.Context()
-		tx, err := a.pool.Begin(ctx)
+		var txID string
+		err := a.inTx(r.Context(), func(tx pgx.Tx) error {
+			id, e := a.postConversionTx(r.Context(), tx, uid, req.From, req.To, fromCents, toCentsVal,
+				"Conversión "+req.From+" → "+req.To)
+			txID = id
+			return e
+		})
 		if err != nil {
-			return 0, nil, errTransferOther
-		}
-		defer tx.Rollback(ctx)
-
-		// Lock both of the user's accounts.
-		rows, err := tx.Query(ctx,
-			`SELECT id, currency, balance_cents FROM accounts
-			 WHERE user_id = $1 AND currency IN ($2, $3) ORDER BY currency FOR UPDATE`,
-			uid, req.From, req.To)
-		if err != nil {
-			return 0, nil, errTransferOther
-		}
-		accByCur := map[string]struct {
-			id  string
-			bal int64
-		}{}
-		for rows.Next() {
-			var id, cur string
-			var bal int64
-			if err := rows.Scan(&id, &cur, &bal); err != nil {
-				rows.Close()
-				return 0, nil, errTransferOther
-			}
-			accByCur[cur] = struct {
-				id  string
-				bal int64
-			}{id, bal}
-		}
-		rows.Close()
-
-		from, okF := accByCur[req.From]
-		dst, okT := accByCur[req.To]
-		if !okF || !okT {
-			return 0, nil, errTransferOther
-		}
-		if from.bal < fromCents {
-			return 0, nil, errInsufficient
-		}
-
-		if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, fromCents, from.id); err != nil {
-			return 0, nil, errTransferOther
-		}
-		if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents + $1 WHERE id = $2`, toCentsVal, dst.id); err != nil {
-			return 0, nil, errTransferOther
-		}
-		desc := "Conversión " + req.From + " → " + req.To
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
-			 VALUES ($1, $2, $3, $4, $5, 'completed', 'conversion')`,
-			from.id, dst.id, fromCents, req.From, desc); err != nil {
-			return 0, nil, errTransferOther
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return 0, nil, errTransferOther
+			return 0, nil, err
 		}
 		return http.StatusCreated, map[string]any{
-			"fromCents": fromCents, "toCents": toCentsVal, "rate": rates.Crc,
+			"id": txID, "fromCents": fromCents, "toCents": toCentsVal, "rate": rates.Crc,
 		}, nil
 	})
 }
@@ -325,9 +276,9 @@ func (a *App) transferToUser(ctx context.Context, senderID, recipientID, currenc
 }
 
 // payOut debits the user's wallet for an outgoing payment with no internal
-// recipient (e.g. a utility bill). Records a transaction with to_account = NULL.
-// External settlements are not ledgered (no internal counterpart); balances
-// remain the source of truth.
+// recipient (e.g. a utility bill). Records a transaction with to_account = NULL
+// and a balanced double-entry against SYSTEM:CLEARING (the money leaving the
+// platform), so the ledger stays reconcilable against balances.
 func (a *App) payOut(ctx context.Context, senderID, currency string, amountCents int64, description, kind string) (string, int64, error) {
 	var txID string
 	var newBalance int64
@@ -339,16 +290,11 @@ func (a *App) payOut(ctx context.Context, senderID, currency string, amountCents
 		if fromBalance < amountCents {
 			return errInsufficient
 		}
-		if _, err := tx.Exec(ctx, `UPDATE accounts SET balance_cents = balance_cents - $1 WHERE id = $2`, amountCents, fromID); err != nil {
+		id, err := a.postExternalTx(ctx, tx, fromID, currency, amountCents, description, kind)
+		if err != nil {
 			return errTransferOther
 		}
-		if err := tx.QueryRow(ctx,
-			`INSERT INTO transactions (from_account_id, to_account_id, amount_cents, currency, description, status, kind)
-			 VALUES ($1, NULL, $2, $3, $4, 'completed', $5) RETURNING id`,
-			fromID, amountCents, currency, description, kind,
-		).Scan(&txID); err != nil {
-			return errTransferOther
-		}
+		txID = id
 		newBalance = fromBalance - amountCents
 		return nil
 	})

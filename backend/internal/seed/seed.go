@@ -31,12 +31,12 @@ const demoPassword = "password123"
 
 // Run seeds demo data (idempotent: skips if any user already exists).
 func Run(ctx context.Context, pool *pgxpool.Pool) error {
-	// Skip if real users already exist. The reserved fees system user
-	// (migration 0012) must not count, or a fresh DB would never seed (and would
-	// never get a demo admin).
+	// Skip if real users already exist. The reserved system users (fees,
+	// clearing, fx — migrations 0012/0016) must not count, or a fresh DB would
+	// never seed (and would never get a demo admin).
 	var count int
 	if err := pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM users WHERE id <> '00000000-0000-0000-0000-0000000000fe'`).Scan(&count); err != nil {
+		`SELECT COUNT(*) FROM users WHERE email NOT LIKE '%@system.ticopay'`).Scan(&count); err != nil {
 		return fmt.Errorf("count users: %w", err)
 	}
 	if count > 0 {

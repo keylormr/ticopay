@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ticopay/backend/internal/db"
@@ -247,5 +248,103 @@ func TestLedgerTriggerRejectsUnbalanced(t *testing.T) {
 	}
 	if err := tx.Commit(ctx); err == nil {
 		t.Fatal("expected commit to fail on unbalanced ledger, got nil")
+	}
+}
+
+func ledgerSumCur(t *testing.T, pool *pgxpool.Pool, txID, currency string) int64 {
+	t.Helper()
+	var s int64
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COALESCE(SUM(amount_cents), 0) FROM ledger_entries WHERE transaction_id = $1 AND currency = $2`,
+		txID, currency).Scan(&s); err != nil {
+		t.Fatalf("ledger sum cur: %v", err)
+	}
+	return s
+}
+
+func ledgerForUser(t *testing.T, pool *pgxpool.Pool, txID, userID string) int64 {
+	t.Helper()
+	var s int64
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COALESCE(SUM(le.amount_cents), 0) FROM ledger_entries le
+		 JOIN accounts ac ON ac.id = le.account_id
+		 WHERE le.transaction_id = $1 AND ac.user_id = $2`, txID, userID).Scan(&s); err != nil {
+		t.Fatalf("ledger for user: %v", err)
+	}
+	return s
+}
+
+func TestPayOutIsLedgered(t *testing.T) {
+	pool := testDB(t)
+	a := &App{pool: pool}
+	ctx := context.Background()
+
+	user, _ := makeUser(t, pool, "CRC", 50_000)
+	txID, newBal, err := a.payOut(ctx, user, "CRC", 20_000, "ICE", "service")
+	if err != nil {
+		t.Fatalf("payOut: %v", err)
+	}
+	if newBal != 30_000 || balanceOf(t, pool, user, "CRC") != 30_000 {
+		t.Fatalf("payer balance = %d, want 30000", balanceOf(t, pool, user, "CRC"))
+	}
+	// The external leg is credited to SYSTEM:CLEARING and the entries balance.
+	if got := ledgerForUser(t, pool, txID, sysClearingUserID); got != 20_000 {
+		t.Fatalf("SYSTEM:CLEARING ledger entry = %d, want 20000", got)
+	}
+	if s := ledgerSum(t, pool, txID); s != 0 {
+		t.Fatalf("payOut ledger not balanced: sum = %d", s)
+	}
+}
+
+func TestConvertIsLedgeredAndFXCanGoNegative(t *testing.T) {
+	pool := testDB(t)
+	a := &App{pool: pool}
+	ctx := context.Background()
+
+	user, _ := makeUser(t, pool, "CRC", 100_000)
+	if _, err := pool.Exec(ctx, `INSERT INTO accounts (user_id, currency, balance_cents) VALUES ($1, 'USD', 0)`, user); err != nil {
+		t.Fatalf("usd account: %v", err)
+	}
+
+	var txID string
+	if err := a.inTx(ctx, func(tx pgx.Tx) error {
+		id, e := a.postConversionTx(ctx, tx, user, "CRC", "USD", 60_000, 1_000, "conv")
+		txID = id
+		return e
+	}); err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+
+	if got := balanceOf(t, pool, user, "CRC"); got != 40_000 {
+		t.Fatalf("user CRC = %d, want 40000", got)
+	}
+	if got := balanceOf(t, pool, user, "USD"); got != 1_000 {
+		t.Fatalf("user USD = %d, want 1000", got)
+	}
+	// The FX desk holds a signed position: long CRC, short (negative) USD.
+	if got := balanceOf(t, pool, sysFXUserID, "USD"); got >= 0 {
+		t.Fatalf("SYSTEM:FX USD = %d, want negative (system accounts may go negative)", got)
+	}
+	// Each currency nets to zero across the conversion's ledger entries.
+	if s := ledgerSumCur(t, pool, txID, "CRC"); s != 0 {
+		t.Fatalf("conversion CRC leg not balanced: sum = %d", s)
+	}
+	if s := ledgerSumCur(t, pool, txID, "USD"); s != 0 {
+		t.Fatalf("conversion USD leg not balanced: sum = %d", s)
+	}
+}
+
+func TestNonSystemAccountCannotGoNegative(t *testing.T) {
+	pool := testDB(t)
+	ctx := context.Background()
+
+	user, _ := makeUser(t, pool, "CRC", 100)
+	var accID string
+	if err := pool.QueryRow(ctx, `SELECT id FROM accounts WHERE user_id = $1 AND currency = 'CRC'`, user).Scan(&accID); err != nil {
+		t.Fatalf("acct: %v", err)
+	}
+	// The non-negative trigger must still protect ordinary (non-system) accounts.
+	if _, err := pool.Exec(ctx, `UPDATE accounts SET balance_cents = -50 WHERE id = $1`, accID); err == nil {
+		t.Fatal("expected the non-negative trigger to reject a negative balance on a user account")
 	}
 }

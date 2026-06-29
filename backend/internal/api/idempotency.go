@@ -20,17 +20,13 @@ func idempotencyKey(r *http.Request) string {
 }
 
 // idempotent runs fn at most once per key and replays the stored JSON response
-// verbatim on retries, so a network re-send never moves money twice. With an
-// empty key it simply runs fn (no dedupe). fn returns (status, body, error);
-// on error the key is released so the client can safely retry.
+// verbatim on retries, so a network re-send never moves money twice. The
+// Idempotency-Key header is REQUIRED for the money POSTs that use this helper
+// (a request without one is rejected, never run undeduped). fn returns
+// (status, body, error); on error the key is released so the client can retry.
 func (a *App) idempotent(w http.ResponseWriter, r *http.Request, key string, fn func() (int, map[string]any, error)) {
 	if key == "" {
-		status, payload, err := fn()
-		if err != nil {
-			writeTransferError(w, err)
-			return
-		}
-		writeJSON(w, status, payload)
+		writeError(w, http.StatusBadRequest, "falta la cabecera Idempotency-Key")
 		return
 	}
 
