@@ -118,6 +118,64 @@ export interface Merchant {
   createdAt: string
 }
 
+export interface Capabilities {
+  backoffice: boolean
+  reports: boolean
+  manageUsers: boolean
+  verifyMerchants: boolean
+  setCommission: boolean
+}
+
+export interface AdminUser {
+  id: string
+  email: string
+  fullName: string
+  phone?: string
+  role: string
+  kycStatus: string
+  emailVerified: boolean
+  disabled: boolean
+  createdAt: string
+}
+
+export interface ReportOverview {
+  users: { total: number; byRole: Record<string, number>; active30d: number; disabled: number }
+  merchants: Record<string, number>
+  transactions: { total: number; byKind: Record<string, number> }
+  volumeByCurrency: { currency: Currency; amountCents: number; count: number }[]
+  feesByCurrency: { currency: Currency; amountCents: number }[]
+}
+
+export interface SeriesPoint {
+  date: string
+  value: number
+}
+
+export interface ByKindRow {
+  kind: string
+  count: number
+  amountCents: number
+}
+
+export interface LedgerHealth {
+  balanced: boolean
+  netByCurrency: { currency: Currency; netCents: number }[]
+  systemAccounts: { account: string; currency: Currency; balanceCents: number }[]
+}
+
+export interface TxReportRow {
+  id: string
+  createdAt: string
+  kind: string
+  status: string
+  currency: Currency
+  amountCents: number
+  feeCents: number
+  fromEmail: string
+  toEmail: string
+  description: string
+}
+
 export interface AuthResult {
   accessToken: string
   refreshToken: string
@@ -369,9 +427,9 @@ export const api = {
     return request<{ id: string; currency: Currency }>(`/api/merchants/${id}/charge`, { method: 'POST', body: body(input) })
   },
 
-  // --- admin (server-side role; client only probes whoami) ---
+  // --- admin (server-side roles; client only learns its capabilities) ---
   adminWhoami() {
-    return request<{ admin: boolean }>('/api/admin/whoami')
+    return request<{ role: string; capabilities: Capabilities }>('/api/admin/whoami')
   },
   adminListMerchants() {
     return request<{ merchants: Merchant[] }>('/api/admin/merchants')
@@ -384,6 +442,82 @@ export const api = {
   },
   adminSetCommission(id: string, bps: number) {
     return request<{ commissionBps: number }>(`/api/admin/merchants/${id}/commission`, { method: 'POST', body: body({ bps }) })
+  },
+
+  // --- admin: users / staff ---
+  adminListUsers(params: { q?: string; limit?: number; offset?: number } = {}) {
+    const qs = new URLSearchParams()
+    if (params.q) qs.set('q', params.q)
+    if (params.limit != null) qs.set('limit', String(params.limit))
+    if (params.offset != null) qs.set('offset', String(params.offset))
+    return request<{ users: AdminUser[]; total: number; limit: number; offset: number; roles: string[] }>(
+      `/api/admin/users?${qs.toString()}`,
+    )
+  },
+  adminCreateUser(input: { email: string; fullName: string; phone?: string; role: string; password: string }) {
+    return request<AdminUser>('/api/admin/users', { method: 'POST', body: body(input) })
+  },
+  adminSetRole(id: string, role: string) {
+    return request<{ role: string }>(`/api/admin/users/${id}/role`, { method: 'POST', body: body({ role }) })
+  },
+  adminSetStatus(id: string, disabled: boolean) {
+    return request<{ disabled: boolean }>(`/api/admin/users/${id}/status`, { method: 'POST', body: body({ disabled }) })
+  },
+
+  // --- admin: reports / analytics ---
+  reportOverview() {
+    return request<ReportOverview>('/api/admin/reports/overview')
+  },
+  reportTimeseries(metric: 'count' | 'volume' | 'fees', days: number, currency?: Currency) {
+    const qs = new URLSearchParams({ metric, days: String(days) })
+    if (currency) qs.set('currency', currency)
+    return request<{ series: SeriesPoint[] }>(`/api/admin/reports/timeseries?${qs.toString()}`)
+  },
+  reportByKind(days: number) {
+    return request<{ byKind: ByKindRow[] }>(`/api/admin/reports/by-kind?days=${days}`)
+  },
+  reportLedgerHealth() {
+    return request<LedgerHealth>('/api/admin/reports/ledger-health')
+  },
+  reportTransactions(params: {
+    from?: string
+    to?: string
+    kind?: string
+    currency?: string
+    q?: string
+    limit?: number
+    offset?: number
+  }) {
+    const qs = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '') qs.set(k, String(v))
+    })
+    return request<{ transactions: TxReportRow[]; total: number; limit: number; offset: number }>(
+      `/api/admin/reports/transactions?${qs.toString()}`,
+    )
+  },
+  async downloadTransactionsCsv(params: { from?: string; to?: string; kind?: string; currency?: string; q?: string }) {
+    const qs = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '') qs.set(k, String(v))
+    })
+    const url = `${API_URL}/api/admin/reports/transactions.csv?${qs.toString()}`
+    const doFetch = () => fetch(url, { headers: tokens.access ? { Authorization: `Bearer ${tokens.access}` } : {} })
+    let res = await doFetch()
+    // Mirror request(): refresh the access token once on 401 and retry (a GET, so safe).
+    if (res.status === 401 && (await refreshTokens())) {
+      res = await doFetch()
+    }
+    if (!res.ok) throw new ApiError(res.status, `Error ${res.status}`)
+    const blob = await res.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = 'transacciones.csv'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(objectUrl)
   },
 }
 

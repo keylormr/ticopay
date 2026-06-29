@@ -71,7 +71,7 @@ func TestMerchantFlowEndToEnd(t *testing.T) {
 
 	// 3. Admin verifies the merchant.
 	rec = fireAs(t, admin, http.MethodPost, "/admin/merchants/{id}/verify", "/admin/merchants/"+m.ID+"/verify",
-		`{}`, a.handleAdminVerifyMerchant, a.requireAdmin)
+		`{}`, a.handleAdminVerifyMerchant, a.requirePerm(permMerchantsVerify))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("admin verify: %d %s", rec.Code, rec.Body.String())
 	}
@@ -108,23 +108,45 @@ func TestMerchantFlowEndToEnd(t *testing.T) {
 	}
 }
 
-func TestRequireAdminBlocksNonAdmin(t *testing.T) {
+func TestRequirePermBlocksNonBackoffice(t *testing.T) {
 	pool := testDB(t)
 	a := &App{pool: pool}
 	ctx := context.Background()
 
-	user, _ := makeUser(t, pool, "CRC", 0)
+	user, _ := makeUser(t, pool, "CRC", 0) // default role 'user' -> no back-office
 	admin, _ := makeUser(t, pool, "CRC", 0)
 	if _, err := pool.Exec(ctx, `UPDATE users SET role = 'admin' WHERE id = $1`, admin); err != nil {
 		t.Fatalf("promote admin: %v", err)
 	}
 
 	if rec := fireAs(t, user, http.MethodGet, "/admin/whoami", "/admin/whoami", "",
-		a.handleAdminWhoami, a.requireAdmin); rec.Code != http.StatusForbidden {
-		t.Fatalf("non-admin to /admin/whoami: %d, want 403", rec.Code)
+		a.handleAdminWhoami, a.requirePerm(permBackoffice)); rec.Code != http.StatusForbidden {
+		t.Fatalf("non-back-office to /admin/whoami: %d, want 403", rec.Code)
 	}
 	if rec := fireAs(t, admin, http.MethodGet, "/admin/whoami", "/admin/whoami", "",
-		a.handleAdminWhoami, a.requireAdmin); rec.Code != http.StatusOK {
+		a.handleAdminWhoami, a.requirePerm(permBackoffice)); rec.Code != http.StatusOK {
 		t.Fatalf("admin to /admin/whoami: %d, want 200", rec.Code)
+	}
+}
+
+func TestSupportCannotManageUsersOrCommission(t *testing.T) {
+	pool := testDB(t)
+	a := &App{pool: pool}
+	ctx := context.Background()
+
+	support, _ := makeUser(t, pool, "CRC", 0)
+	if _, err := pool.Exec(ctx, `UPDATE users SET role = 'support' WHERE id = $1`, support); err != nil {
+		t.Fatalf("set support: %v", err)
+	}
+	// Support has back-office + reports + verify, but NOT users.manage.
+	if rec := fireAs(t, support, http.MethodPost, "/admin/users", "/admin/users",
+		`{"email":"x@y.cr","fullName":"X","role":"support","password":"password123"}`,
+		a.handleAdminCreateUser, a.requirePerm(permUsersManage)); rec.Code != http.StatusForbidden {
+		t.Fatalf("support creating users: %d, want 403", rec.Code)
+	}
+	// But support CAN reach a reports endpoint (reports.view).
+	if rec := fireAs(t, support, http.MethodGet, "/admin/reports/overview", "/admin/reports/overview", "",
+		a.handleReportOverview, a.requirePerm(permReportsView)); rec.Code != http.StatusOK {
+		t.Fatalf("support viewing reports: %d, want 200", rec.Code)
 	}
 }

@@ -113,15 +113,32 @@ func (a *App) Router() http.Handler {
 			r.Get("/merchants", a.handleListMerchants)
 			r.Post("/merchants/{id}/charge", a.handleCreateMerchantCharge)
 
-			// Admin-only: merchant verification and commission. The role is
-			// checked server-side and never exposed to the client.
+			// Back-office. Every route is gated server-side on a permission
+			// (requirePerm); the role is read from the DB per request and never
+			// trusted from the client. Baseline: must have back-office access.
 			r.Route("/admin", func(r chi.Router) {
-				r.Use(a.requireAdmin)
+				r.Use(a.requirePerm(permBackoffice))
 				r.Get("/whoami", a.handleAdminWhoami)
+
+				// Merchants: view for any back-office; mutations need the perm.
 				r.Get("/merchants", a.handleAdminListMerchants)
-				r.Post("/merchants/{id}/verify", a.handleAdminVerifyMerchant)
-				r.Post("/merchants/{id}/reject", a.handleAdminRejectMerchant)
-				r.Post("/merchants/{id}/commission", a.handleAdminSetCommission)
+				r.With(a.requirePerm(permMerchantsVerify)).Post("/merchants/{id}/verify", a.handleAdminVerifyMerchant)
+				r.With(a.requirePerm(permMerchantsVerify)).Post("/merchants/{id}/reject", a.handleAdminRejectMerchant)
+				r.With(a.requirePerm(permMerchantsFee)).Post("/merchants/{id}/commission", a.handleAdminSetCommission)
+
+				// Users / staff: view for back-office; managing needs users.manage.
+				r.Get("/users", a.handleAdminListUsers)
+				r.With(a.requirePerm(permUsersManage)).Post("/users", a.handleAdminCreateUser)
+				r.With(a.requirePerm(permUsersManage)).Post("/users/{id}/role", a.handleAdminSetRole)
+				r.With(a.requirePerm(permUsersManage)).Post("/users/{id}/status", a.handleAdminSetStatus)
+
+				// Reports / analytics.
+				r.With(a.requirePerm(permReportsView)).Get("/reports/overview", a.handleReportOverview)
+				r.With(a.requirePerm(permReportsView)).Get("/reports/timeseries", a.handleReportTimeseries)
+				r.With(a.requirePerm(permReportsView)).Get("/reports/by-kind", a.handleReportByKind)
+				r.With(a.requirePerm(permReportsView)).Get("/reports/ledger-health", a.handleReportLedgerHealth)
+				r.With(a.requirePerm(permReportsView)).Get("/reports/transactions", a.handleReportTransactions)
+				r.With(a.requirePerm(permReportsView)).Get("/reports/transactions.csv", a.handleReportTransactionsCSV)
 			})
 
 			// Passkey management (requires an active session).

@@ -9,25 +9,17 @@ import (
 	"ticopay/backend/internal/models"
 )
 
-// requireAdmin gates admin-only routes. The role is read from the database on
-// every request and never travels in the JWT or /api/me: the client can only
-// infer "admin" because these endpoints answer. Must run after requireAuth.
-func (a *App) requireAdmin(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var role string
-		err := a.pool.QueryRow(r.Context(), `SELECT role FROM users WHERE id = $1`, userID(r)).Scan(&role)
-		if err != nil || role != "admin" {
-			writeError(w, http.StatusForbidden, "no autorizado")
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// handleAdminWhoami answers 200 only for admins (the route is behind
-// requireAdmin), letting the client decide whether to show the admin panel.
+// handleAdminWhoami answers only for back-office roles (the route is behind
+// requirePerm(permBackoffice)) and returns the caller's role plus the
+// capability set the client uses to decide what to render. The server still
+// enforces every endpoint independently — these capabilities are UX, not a
+// security control.
 func (a *App) handleAdminWhoami(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"admin": true})
+	role := currentRole(r)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"role":         role,
+		"capabilities": roleCapabilities(role),
+	})
 }
 
 // handleAdminListMerchants lists merchants (pending first) for review.

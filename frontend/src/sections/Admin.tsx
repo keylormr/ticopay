@@ -1,107 +1,38 @@
-import { useEffect, useState } from 'react'
-import { ApiError, api, type Merchant } from '../api'
+import { useState } from 'react'
+import { type Capabilities } from '../api'
 import { useI18n } from '../i18n'
+import { Reportes } from './admin/Reportes'
+import { Usuarios } from './admin/Usuarios'
+import { ComerciosAdmin } from './admin/ComerciosAdmin'
 
-export function Admin() {
+type Sub = 'reportes' | 'usuarios' | 'comercios'
+
+// Admin is the back-office container. Sub-tabs are shown per capability; the
+// server still enforces every endpoint, so hiding a tab is UX only.
+export function Admin({ caps }: { caps: Capabilities }) {
   const { t } = useI18n()
-  const [merchants, setMerchants] = useState<Merchant[]>([])
-  const [error, setError] = useState('')
+  const tabs = (
+    [
+      { id: 'reportes', show: caps.reports },
+      { id: 'usuarios', show: caps.backoffice },
+      { id: 'comercios', show: caps.backoffice },
+    ] as { id: Sub; show: boolean }[]
+  ).filter((x) => x.show)
 
-  function load() {
-    api
-      .adminListMerchants()
-      .then((r) => setMerchants(r.merchants))
-      .catch(() => {})
-  }
-  useEffect(load, [])
+  const [sub, setSub] = useState<Sub>(tabs[0]?.id ?? 'reportes')
 
   return (
-    <div className="grid">
-      <div className="col" style={{ gridColumn: '1 / -1' }}>
-        <section className="panel">
-          <h2>{t('admin.title')}</h2>
-          <p className="sub">{t('admin.sub')}</p>
-          {error && <div className="error">{error}</div>}
-          {merchants.length === 0 && <div className="empty">{t('admin.empty')}</div>}
-          {merchants.map((m) => (
-            <AdminMerchantRow key={m.id} merchant={m} reload={load} onError={setError} />
-          ))}
-        </section>
+    <div>
+      <div className="tabs" style={{ marginBottom: 14 }}>
+        {tabs.map((tb) => (
+          <button key={tb.id} className={`tab ${sub === tb.id ? 'tab-active' : ''}`} onClick={() => setSub(tb.id)}>
+            {t(`admin.tab.${tb.id}`)}
+          </button>
+        ))}
       </div>
-    </div>
-  )
-}
-
-function AdminMerchantRow({
-  merchant,
-  reload,
-  onError,
-}: {
-  merchant: Merchant
-  reload: () => void
-  onError: (s: string) => void
-}) {
-  const { t } = useI18n()
-  const [bps, setBps] = useState(String(merchant.commissionBps))
-  const [reason, setReason] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function run(fn: () => Promise<unknown>) {
-    setBusy(true)
-    onError('')
-    try {
-      await fn()
-      reload()
-    } catch (err) {
-      onError(err instanceof ApiError ? err.message : t('admin.err'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="req-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-      <div className="tx-meta">
-        <div className="name">
-          {merchant.name} <span className={`pill pill-${merchant.status}`}>{t(`merch.status.${merchant.status}`)}</span>
-        </div>
-        <div className="desc">
-          {merchant.ownerEmail} · {merchant.category || '—'}
-          {merchant.idNumber ? ` · ${merchant.idType} ${merchant.idNumber}` : ''}
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, alignItems: 'center' }}>
-        <button
-          className="btn-pay"
-          disabled={busy || merchant.status === 'verified'}
-          onClick={() => run(() => api.adminVerifyMerchant(merchant.id))}
-        >
-          {t('admin.verify')}
-        </button>
-        <input
-          className="mini-input"
-          style={{ width: 150 }}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder={t('admin.reject.ph')}
-        />
-        <button className="btn-ghost" disabled={busy} onClick={() => run(() => api.adminRejectMerchant(merchant.id, reason))}>
-          {t('admin.reject')}
-        </button>
-        <input
-          className="mini-input"
-          style={{ width: 90 }}
-          type="number"
-          min="0"
-          max="10000"
-          value={bps}
-          onChange={(e) => setBps(e.target.value)}
-        />
-        <span className="sub">bps</span>
-        <button className="btn-ghost" disabled={busy} onClick={() => run(() => api.adminSetCommission(merchant.id, Number(bps)))}>
-          {t('admin.setCommission')}
-        </button>
-      </div>
+      {sub === 'reportes' && caps.reports && <Reportes />}
+      {sub === 'usuarios' && caps.backoffice && <Usuarios caps={caps} />}
+      {sub === 'comercios' && caps.backoffice && <ComerciosAdmin caps={caps} />}
     </div>
   )
 }

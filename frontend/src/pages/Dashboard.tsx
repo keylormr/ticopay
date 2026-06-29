@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type Account, type Rates } from '../api'
+import { api, type Account, type Capabilities, type Rates } from '../api'
 import { useAuth } from '../auth'
 import { useI18n } from '../i18n'
 import { Brand } from '../components/Brand'
@@ -41,22 +41,23 @@ export function Dashboard() {
   const [version, setVersion] = useState(0)
   const [rates, setRates] = useState<Rates | null>(null)
   const [showAllCrypto, setShowAllCrypto] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [caps, setCaps] = useState<Capabilities | null>(null)
 
   useEffect(() => {
     api.rates().then(setRates).catch(() => {})
   }, [version])
 
-  // The admin tab appears only if the server's admin endpoint answers. The role
-  // is never sent to the client; we infer it from this probe alone.
+  // The admin tab appears only for back-office roles. The server returns the
+  // caller's capabilities; the role itself isn't trusted client-side — every
+  // admin endpoint is enforced on the server regardless of what we render.
   useEffect(() => {
     api
       .adminWhoami()
-      .then(() => setIsAdmin(true))
-      .catch(() => setIsAdmin(false))
+      .then((r) => setCaps(r.capabilities))
+      .catch(() => setCaps(null))
   }, [])
 
-  const visibleTabs = isAdmin ? [...TABS, ADMIN_TAB] : TABS
+  const visibleTabs = caps?.backoffice ? [...TABS, ADMIN_TAB] : TABS
 
   async function reload() {
     await refresh()
@@ -193,7 +194,7 @@ export function Dashboard() {
         {tab === 'vaquitas' && <Vaquitas version={version} reload={reload} />}
         {tab === 'comercio' && <Comercio reload={reload} />}
         {tab === 'cuenta' && <AccountTab />}
-        {tab === 'admin' && isAdmin && <Admin />}
+        {tab === 'admin' && caps?.backoffice && <Admin caps={caps} />}
       </main>
     </>
   )
