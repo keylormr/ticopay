@@ -16,8 +16,8 @@ Auth (clave + **passkeys/WebAuthn** passwordless + **códigos de recuperación**
 
 ---
 
-## 🟣 Riel de comercio (implementado, **sin desplegar** — en rama de trabajo)
-Cobro por QR de comercio inspirado en el modelo KiramoPay, montado sobre el wallet existente. Compila y pasa pruebas en local; **falta integrar a `main` y desplegar**.
+## 🟣 Riel de comercio (implementado y **desplegado**)
+Cobro por QR de comercio inspirado en el modelo KiramoPay, montado sobre el wallet existente. Integrado a `main` y desplegado (Render + Vercel auto-despliegan); la integración del camino del dinero corre en CI contra un servicio Postgres.
 
 - **Ledger de doble entrada** (`ledger_entries` + trigger DEFERRED de balanceo) y cuenta `SYSTEM:FEES`. Los saldos siguen siendo la fuente operativa; el ledger es el registro auditable de pagos wallet-to-wallet. Migración `0012`.
 - **Idempotencia extremo a extremo** (`Idempotency-Key` + tabla `idempotency_keys`, migración `0013`) en enviar, SINPE, servicios, **convertir** y aportes; los cobros son idempotentes por `paid_by`. Cierra la **carrera de doble pago** que existía en cobros/vaquitas (ahora `FOR UPDATE` + una sola transacción).
@@ -30,13 +30,14 @@ Cobro por QR de comercio inspirado en el modelo KiramoPay, montado sobre el wall
 
 ---
 
-## 🟣 Back-office: roles, usuarios y reportes (implementado, **sin desplegar**)
+## 🟣 Back-office: roles, usuarios y reportes (implementado y **desplegado**)
 Gestión de roles "digna de fintech" y panel de analítica, sobre el RBAC del riel de comercio.
 
 - **RBAC de roles fijos** (`permissions.go`): `user`, `merchant`, `support`, `analyst`, `admin`, con una **matriz de permisos** (`backoffice.access`, `reports.view`, `users.manage`, `merchants.verify`, `merchants.commission`). `requirePerm` reemplaza a `requireAdmin` y **lee el rol de la BD en cada request** (nunca del cliente ni del JWT). `support` opera/verifica pero no toca comisiones ni usuarios; `analyst` es solo lectura.
 - **Gestión de staff** (`staff.go`): crear usuarios con rol, cambiar rol, activar/desactivar. Desactivar **revoca las sesiones** (bump de `token_version`) y `requireAuth` bloquea cuentas desactivadas (`users.disabled`, migración `0017`). Guards: no quitarte tu propio admin, no dejar la plataforma sin administradores (advisory lock), no tocar los system users.
 - **Panel de reportes** (`reports.go`, capacidad `reports.view`): overview de KPIs (usuarios/activos, comercios, transacciones, volumen y comisiones por moneda), series de tiempo, desglose por tipo, **salud del ledger** (neto por moneda = 0 + posiciones de sistema), y **transacciones filtrables** (fecha/tipo/moneda/texto, paginadas) con **export CSV** sanitizado contra inyección de fórmulas.
-- **Frontend** (`sections/admin/`): panel con sub-pestañas Reportes / Usuarios / Comercios gateadas por **capacidades** (no por el rol; el server gatea cada endpoint), gráficos SVG modernos sin dependencias (`components/Charts.tsx`: área, barras, donut, KPIs), tabla filtrable + descarga CSV. i18n ES/EN.
+- **Frontend** (`sections/admin/`): panel con sub-pestañas Reportes / Usuarios / Comercios / Auditoría gateadas por **capacidades** (no por el rol; el server gatea cada endpoint), gráficos SVG modernos sin dependencias (`components/Charts.tsx`: área, barras, donut, KPIs), tabla filtrable + descarga CSV. i18n ES/EN.
+- **Bitácora de auditoría** (`admin_audit_log`, migración `0018`): registro append-only de cada mutación del back-office (verificar/rechazar/comisión de comercios, alta/rol/estado de usuarios), escrito en la **misma transacción** que la mutación para que nunca se desfase. Lectura en `GET /api/admin/audit` (capacidad `reports.view`, paginado y filtrable por acción) + panel "Auditoría" (`sections/admin/Auditoria.tsx`).
 
 > Revisión adversarial: corregidos inyección de fórmulas CSV, lockout del último admin (con advisory lock), bypass del self-guard por UUID en mayúsculas, errores silenciados en métricas y validación de fechas.
 
@@ -61,6 +62,13 @@ Gestión de roles "digna de fintech" y panel de analítica, sobre el RBAC del ri
 - Migración `0009_totp.sql` (tabla `user_totp`: secreto por usuario, gate solo si `confirmed`). Backend `totp.go`: `GET /api/totp` (estado), `POST /api/totp/setup` (secreto + otpauth URL), `/confirm` (valida 1er código y activa), `/disable` (pide código válido). Login: con 2FA activo responde **428** si falta `totpCode`; código malo cuenta para el lockout.
 - Front: sección "📱 Verificación en dos pasos" en `Account.tsx` (QR con `qrcode.react` + clave manual + confirmar/desactivar); `AuthPage.tsx` muestra campo de código al recibir 428. i18n ES/EN.
 
+### 5. ~~Endurecimiento adversarial (back-office y sesiones)~~ ✅ **Hecho y desplegado** *(tras una auditoría adversarial)*
+- **Arranque seguro en prod:** con `APP_ENV=production` el server aborta si `JWT_SECRET` está vacío/por defecto/`<32` (fail-closed), no siembra la demo, fija cabeceras de seguridad (`secureHeaders`: CSP deny-all, anti-framing, nosniff, Referrer-Policy, HSTS), limita el body a 1 MiB (`maxBody`) y aplica un tope de 120 req/min por IP en rutas autenticadas. Nuevos `config.AppEnv`/`Config.IsProd()`.
+- **Bitácora de auditoría** (`admin_audit_log`, migración `0018`): ver la sección Back-office. Registro append-only y transaccional de toda mutación privilegiada, con lectura en `GET /api/admin/audit` y panel "Auditoría".
+- **Sesiones:** `POST /api/auth/logout` autenticado que bumpea `token_version` (salir de **todos** los dispositivos); `/auth/refresh` rechaza cuentas desactivadas (defensa en profundidad); `RefreshTTL` reducido de 7 días a **48 h**.
+- **Credenciales:** contraseña de personal ≥10 con letras y dígitos (`validateStaffPassword`); anti-enumeración en el inicio de login por passkey (misma respuesta exista o no la cuenta); **anti-replay TOTP** (migración `0019`, `user_totp.last_used_period`): se registra el periodo de 30 s consumido y se rechaza el reuso del mismo código en login/confirmación/desactivación.
+- **Pendiente (parte 2):** mover el refresh a **cookie httpOnly + CSRF** y sacar el access token de `localStorage`. Bloqueado por la topología **cross-site** actual (`ticopay.vercel.app` ↔ `ticopay.onrender.com`): una cookie de refresh tendría que ser de terceros (`SameSite=None`), que Safari bloquea y Chrome retira. Hacerlo bien exige un despliegue same-site (dominio propio `app.ticopay.cr` + `api.ticopay.cr`, o un proxy de Vercel `/api/*`→Render) para usar cookie first-party `SameSite=Lax`.
+
 ---
 
 ## 🔵 Pendientes — Pulido
@@ -81,7 +89,7 @@ Gestión de roles "digna de fintech" y panel de analítica, sobre el RBAC del ri
 ---
 
 ## ⚙️ Infra / calidad
-- ✅ ~~**Tests automatizados**~~ — Go: `currency_test.go`, `i18n_test.go`, `hardening_test.go`, `recovery_test.go`, `totp_test.go` (lógica pura, sin DB; `go test ./...`). Front: `vitest` (`npm test`, `format.test.ts`). *Falta: tests de handlers con DB (necesitarían Postgres local o testcontainers).*
+- ✅ ~~**Tests automatizados**~~ — Go: `currency_test.go`, `i18n_test.go`, `hardening_test.go`, `recovery_test.go`, `totp_test.go`, `password_test.go` (lógica pura, sin DB; `go test ./...`). Tests de handlers con DB (`money_db_test.go`, `merchant_db_test.go`, `staff_db_test.go`) gateados por `TEST_DATABASE_URL`: corren en CI contra un servicio Postgres, se saltan en local. Front: `vitest` (`npm test`, `format.test.ts`).
 - ✅ ~~**Logging estructurado**~~ — `logging.go`: middleware `slogRequests` (JSON por request: método, ruta, status, duración, IP, request id; nivel según status) + `api.Logger` (slog) en `main.go`. *Falta: métricas y alertas.*
 - **KYC real** (validación contra TSE / Registro Nacional; hoy auto-aprueba el formato).
 - **Rate-limiting distribuido** (Upstash) si se escala a >1 instancia (hoy es en memoria, ok para 1 instancia de Render free).
@@ -90,7 +98,7 @@ Gestión de roles "digna de fintech" y panel de analítica, sobre el RBAC del ri
 
 ## 🧭 Notas de arquitectura (para retomar rápido)
 - **Backend** `backend/internal/api/`: handlers por dominio (`handlers.go`, `auth_handlers.go`, `sinpe.go`, `requests_handlers.go`, `pools_handlers.go`, `billers.go`, `webauthn.go`, `exchange.go`, `kyc_handlers.go`). Rutas en `server.go`. Hardening en `hardening.go`. i18n de errores en `i18n.go` (cabecera `X-Lang`).
-- **Migraciones**: SQL numerado en `backend/internal/db/migrations/` (embebidas, corren con `RUN_MIGRATIONS=true`). Última: `0011_token_version.sql`. `transactions.kind` es texto libre (`transfer|conversion|request|pool|service|sinpe`).
+- **Migraciones**: SQL numerado en `backend/internal/db/migrations/` (embebidas, corren con `RUN_MIGRATIONS=true`). Última: `0019_totp_replay.sql`. `transactions.kind` es texto libre (`transfer|conversion|request|merchant|pool|service|sinpe`).
 - **Catálogo de monedas**: `internal/api/currency.go` (backend) espejado en `src/currencies.ts` (front). Montos en unidades menores enteras por moneda (`toMinor`/`majorOf`).
 - **i18n front**: `src/i18n.tsx` (claves ES/EN + selector). El cliente manda `X-Lang`.
 - **Go 1.25** requerido (go-webauthn) → Dockerfile usa `golang:1.25-alpine`. Build local: Go portable en `$env:TEMP\goportable\go`; front `npm run build`. (Docker Desktop local crashea por un bug suyo — no se usa.)
