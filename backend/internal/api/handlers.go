@@ -261,20 +261,6 @@ func (a *App) transfer(ctx context.Context, senderID, to, currency string, amoun
 	return txID, newBalance, nil
 }
 
-// transferToUser moves money from sender to a known recipient user id (used by
-// paid requests and pool contributions). Returns the transaction id. The
-// per-tx variant transferToUserTx (ledger.go) lets callers move money and
-// update business rows atomically.
-func (a *App) transferToUser(ctx context.Context, senderID, recipientID, currency string, amountCents int64, description, kind string) (string, error) {
-	var txID string
-	err := a.inTx(ctx, func(tx pgx.Tx) error {
-		id, err := a.transferToUserTx(ctx, tx, senderID, recipientID, currency, amountCents, 0, description, kind)
-		txID = id
-		return err
-	})
-	return txID, err
-}
-
 // payOut debits the user's wallet for an outgoing payment with no internal
 // recipient (e.g. a utility bill). Records a transaction with to_account = NULL
 // and a balanced double-entry against SYSTEM:CLEARING (the money leaving the
