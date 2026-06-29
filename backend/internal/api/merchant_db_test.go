@@ -64,7 +64,7 @@ func TestMerchantFlowEndToEnd(t *testing.T) {
 
 	// 2. Charging while pending is forbidden.
 	rec = fireAs(t, owner, http.MethodPost, "/merchants/{id}/charge", "/merchants/"+m.ID+"/charge",
-		`{"amount":100000,"currency":"CRC"}`, a.handleCreateMerchantCharge)
+		`{"amount":1000,"currency":"CRC"}`, a.handleCreateMerchantCharge)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("charge while pending: %d, want 403", rec.Code)
 	}
@@ -78,14 +78,14 @@ func TestMerchantFlowEndToEnd(t *testing.T) {
 
 	// 4. A non-owner cannot charge this merchant (ownership gate -> 404).
 	rec = fireAs(t, payer, http.MethodPost, "/merchants/{id}/charge", "/merchants/"+m.ID+"/charge",
-		`{"amount":100000,"currency":"CRC"}`, a.handleCreateMerchantCharge)
+		`{"amount":1000,"currency":"CRC"}`, a.handleCreateMerchantCharge)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("charge by non-owner: %d, want 404", rec.Code)
 	}
 
 	// 5. Owner now charges -> creates a merchant cobro.
 	rec = fireAs(t, owner, http.MethodPost, "/merchants/{id}/charge", "/merchants/"+m.ID+"/charge",
-		`{"amount":100000,"currency":"CRC"}`, a.handleCreateMerchantCharge)
+		`{"amount":1000,"currency":"CRC"}`, a.handleCreateMerchantCharge)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("charge verified: %d %s", rec.Code, rec.Body.String())
 	}
