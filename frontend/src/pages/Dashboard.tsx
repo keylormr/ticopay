@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { api, type Account, type Capabilities, type Rates } from '../api'
 import { useAuth } from '../auth'
 import { useI18n } from '../i18n'
@@ -8,15 +8,20 @@ import { LangToggle } from '../components/LangToggle'
 import { CRYPTO, FIAT, metaOf } from '../currencies'
 import { formatMoney } from '../format'
 import { Movimientos } from '../sections/Movimientos'
-import { Sinpe } from '../sections/Sinpe'
-import { Convertir } from '../sections/Convertir'
-import { SendMoney } from '../sections/SendMoney'
-import { Cobros } from '../sections/Cobros'
-import { Servicios } from '../sections/Servicios'
-import { Vaquitas } from '../sections/Vaquitas'
-import { Comercio } from '../sections/Comercio'
-import { Admin } from '../sections/Admin'
-import { Account as AccountTab } from '../sections/Account'
+
+// Only the "inicio" tab (and its Movimientos list) loads up front. Every other
+// tab — including the admin panel with its charts and the QR/WebAuthn code — is
+// code-split and fetched the first time it's opened, so the average user who
+// never leaves the home tab downloads far less on the first load.
+const Sinpe = lazy(() => import('../sections/Sinpe').then((m) => ({ default: m.Sinpe })))
+const Convertir = lazy(() => import('../sections/Convertir').then((m) => ({ default: m.Convertir })))
+const SendMoney = lazy(() => import('../sections/SendMoney').then((m) => ({ default: m.SendMoney })))
+const Cobros = lazy(() => import('../sections/Cobros').then((m) => ({ default: m.Cobros })))
+const Servicios = lazy(() => import('../sections/Servicios').then((m) => ({ default: m.Servicios })))
+const Vaquitas = lazy(() => import('../sections/Vaquitas').then((m) => ({ default: m.Vaquitas })))
+const Comercio = lazy(() => import('../sections/Comercio').then((m) => ({ default: m.Comercio })))
+const Admin = lazy(() => import('../sections/Admin').then((m) => ({ default: m.Admin })))
+const AccountTab = lazy(() => import('../sections/Account').then((m) => ({ default: m.Account })))
 
 type Tab = 'inicio' | 'sinpe' | 'convertir' | 'enviar' | 'cobrar' | 'servicios' | 'vaquitas' | 'comercio' | 'cuenta' | 'admin'
 
@@ -186,15 +191,19 @@ export function Dashboard() {
           </>
         )}
 
-        {tab === 'sinpe' && <Sinpe reload={reload} />}
-        {tab === 'convertir' && <Convertir reload={reload} />}
-        {tab === 'enviar' && <SendMoney reload={reload} />}
-        {tab === 'cobrar' && <Cobros version={version} reload={reload} />}
-        {tab === 'servicios' && <Servicios reload={reload} />}
-        {tab === 'vaquitas' && <Vaquitas version={version} reload={reload} />}
-        {tab === 'comercio' && <Comercio reload={reload} />}
-        {tab === 'cuenta' && <AccountTab />}
-        {tab === 'admin' && caps?.backoffice && <Admin caps={caps} />}
+        {tab !== 'inicio' && (
+          <Suspense fallback={<div className="section-loading">{t('common.loading')}</div>}>
+            {tab === 'sinpe' && <Sinpe reload={reload} />}
+            {tab === 'convertir' && <Convertir reload={reload} />}
+            {tab === 'enviar' && <SendMoney reload={reload} />}
+            {tab === 'cobrar' && <Cobros version={version} reload={reload} />}
+            {tab === 'servicios' && <Servicios reload={reload} />}
+            {tab === 'vaquitas' && <Vaquitas version={version} reload={reload} />}
+            {tab === 'comercio' && <Comercio reload={reload} />}
+            {tab === 'cuenta' && <AccountTab />}
+            {tab === 'admin' && caps?.backoffice && <Admin caps={caps} />}
+          </Suspense>
+        )}
       </main>
     </>
   )

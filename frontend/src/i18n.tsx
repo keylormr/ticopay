@@ -7,6 +7,7 @@ type Dict = Record<string, string>
 const es: Dict = {
   'app.tagline': 'Pagos al instante en colones, dólares y cripto. 🇨🇷',
   'common.loading': 'Cargando…',
+  'common.waking': 'Despertando el servidor, unos segundos…',
   'btn.signout': 'Salir',
   'common.simulated': 'Demo: liquida en el libro interno de Tico Pay; no usa el riel real (SINPE/biller).',
 
@@ -445,6 +446,7 @@ const es: Dict = {
 const en: Dict = {
   'app.tagline': 'Instant payments in colones, dollars and crypto. 🇨🇷',
   'common.loading': 'Loading…',
+  'common.waking': 'Waking the server, just a moment…',
   'btn.signout': 'Sign out',
   'common.simulated': "Demo: settles on Tico Pay's internal ledger; it does not use the real rail (SINPE/biller).",
 

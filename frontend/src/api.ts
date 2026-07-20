@@ -1,5 +1,13 @@
 const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
+// warmBackend fires a cheap request so a cold backend (Render Free sleeps after
+// ~15 min idle) starts waking while the user is still reading the login screen,
+// hiding much of the ~50s cold start. It also opens the TCP/TLS connection early
+// so the first real request is faster. Best-effort; failures are ignored.
+export function warmBackend(): void {
+  void fetch(`${API_URL}/health`).catch(() => {})
+}
+
 export type Currency =
   | 'CRC'
   | 'USD'
