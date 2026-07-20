@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -113,6 +114,7 @@ func TestSinpeIdempotentReplayMovesMoneyOnce(t *testing.T) {
 	recv, _ := makeUser(t, pool, "CRC", 0)
 	setPhone(t, pool, recv, "88880003")
 
+	sent := toMinor(250, "CRC")
 	first := doSinpe(t, a, sender, "88880003", 250, "k-replay")
 	if first.Code != http.StatusCreated {
 		t.Fatalf("first SINPE: status %d, body %s", first.Code, first.Body.String())
@@ -122,14 +124,23 @@ func TestSinpeIdempotentReplayMovesMoneyOnce(t *testing.T) {
 	if second.Code != http.StatusCreated {
 		t.Fatalf("replayed SINPE: status %d, body %s", second.Code, second.Body.String())
 	}
-	if first.Body.String() != second.Body.String() {
-		t.Fatalf("replay body differs:\n first=%s\nsecond=%s", first.Body.String(), second.Body.String())
+	// Compare semantically, not byte-for-byte: the stored response is JSONB, so
+	// Postgres may reorder keys on read. The receipt id must match on replay.
+	var b1, b2 map[string]any
+	if err := json.Unmarshal(first.Body.Bytes(), &b1); err != nil {
+		t.Fatalf("parse first body: %v", err)
 	}
-	if got := balanceOf(t, pool, sender, "CRC"); got != 75_000 {
-		t.Fatalf("sender charged more than once: %d, want a single 25000-cent charge (75000)", got)
+	if err := json.Unmarshal(second.Body.Bytes(), &b2); err != nil {
+		t.Fatalf("parse replay body: %v", err)
 	}
-	if got := balanceOf(t, pool, recv, "CRC"); got != 25_000 {
-		t.Fatalf("recipient credited more than once: %d, want 25000", got)
+	if b1["comprobante"] != b2["comprobante"] || b1["comprobante"] == nil {
+		t.Fatalf("replay comprobante differs: %v vs %v", b1["comprobante"], b2["comprobante"])
+	}
+	if got := balanceOf(t, pool, sender, "CRC"); got != 100_000-sent {
+		t.Fatalf("sender charged more than once: %d, want a single charge to %d", got, 100_000-sent)
+	}
+	if got := balanceOf(t, pool, recv, "CRC"); got != sent {
+		t.Fatalf("recipient credited more than once: %d, want %d", got, sent)
 	}
 }
 
@@ -141,6 +152,7 @@ func TestIdempotencyKeyReusedWithDifferentPayloadRejected(t *testing.T) {
 	recv, _ := makeUser(t, pool, "CRC", 0)
 	setPhone(t, pool, recv, "88880004")
 
+	firstAmount := toMinor(100, "CRC")
 	if rec := doSinpe(t, a, sender, "88880004", 100, "k-reuse"); rec.Code != http.StatusCreated {
 		t.Fatalf("first SINPE: status %d, body %s", rec.Code, rec.Body.String())
 	}
@@ -150,8 +162,8 @@ func TestIdempotencyKeyReusedWithDifferentPayloadRejected(t *testing.T) {
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("key reused with a different amount: status %d, want 422", rec.Code)
 	}
-	if got := balanceOf(t, pool, sender, "CRC"); got != 99_900 {
-		t.Fatalf("only the first 100-cent payment should stand: sender = %d, want 99900", got)
+	if got := balanceOf(t, pool, sender, "CRC"); got != 100_000-firstAmount {
+		t.Fatalf("only the first payment should stand: sender = %d, want %d", got, 100_000-firstAmount)
 	}
 }
 
