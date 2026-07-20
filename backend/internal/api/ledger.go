@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"math/big"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -67,12 +68,15 @@ func ensureSystemAccount(ctx context.Context, tx pgx.Tx, sysUserID, currency str
 }
 
 // feeCents returns the integer commission in minor units: amount * bps / 10000,
-// truncated to the cent. Integer arithmetic only — no float drift.
+// truncated to the cent. Integer arithmetic only — no float drift — and the
+// multiplication is done in a 128-bit intermediate so amount*bps can never
+// overflow int64 for any balance the account could actually hold.
 func feeCents(amount, bps int64) int64 {
 	if bps <= 0 || amount <= 0 {
 		return 0
 	}
-	return amount * bps / 10000
+	r := new(big.Int).Mul(big.NewInt(amount), big.NewInt(bps))
+	return r.Div(r, big.NewInt(10000)).Int64()
 }
 
 // postPayment debits fromAccID by amount, credits toAccID by (amount - fee) and
@@ -137,7 +141,10 @@ func insertLedger(ctx context.Context, tx pgx.Tx, txID, accID, currency string, 
 
 // transferToUserTx posts a P2P payment to a known recipient within an existing
 // transaction (so callers can lock and update business rows atomically with the
-// money move). Locks both accounts, validates balance, and applies an optional
+// money move). It locks ONLY the sender's account (FOR UPDATE) to serialize
+// debits; the recipient's credit is an atomic increment that can't go negative,
+// so locking it is unnecessary and would introduce a lock-ordering deadlock on
+// concurrent mutual transfers. Validates balance and applies an optional
 // commission. Returns the transaction id.
 func (a *App) transferToUserTx(ctx context.Context, tx pgx.Tx, senderID, recipientID, currency string, amount, fee int64, description, kind string) (string, error) {
 	if recipientID == senderID {
@@ -149,7 +156,7 @@ func (a *App) transferToUserTx(ctx context.Context, tx pgx.Tx, senderID, recipie
 	}
 	var toID string
 	if err := tx.QueryRow(ctx,
-		`SELECT id FROM accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`,
+		`SELECT id FROM accounts WHERE user_id = $1 AND currency = $2`,
 		recipientID, currency,
 	).Scan(&toID); err != nil {
 		return "", errNoRecipient

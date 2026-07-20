@@ -2,7 +2,10 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Biller is a service/utility a user can pay from their wallet.
@@ -79,8 +82,9 @@ func (a *App) handlePayService(w http.ResponseWriter, r *http.Request) {
 	}
 
 	desc := biller.Name + " · " + req.Reference
-	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
-		txID, newBalance, err := a.payOut(r.Context(), userID(r), currency, amountCents, desc, "service")
+	fp := "service|" + req.BillerID + "|" + req.Reference + "|" + currency + "|" + strconv.FormatInt(amountCents, 10)
+	a.idempotent(w, r, idempotencyKey(r), fp, func(tx pgx.Tx) (int, map[string]any, error) {
+		txID, newBalance, err := a.payOutTx(r.Context(), tx, userID(r), currency, amountCents, desc, "service")
 		if err != nil {
 			return 0, nil, err
 		}
