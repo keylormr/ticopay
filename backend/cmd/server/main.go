@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"os"
@@ -15,18 +17,38 @@ import (
 	"ticopay/backend/internal/seed"
 )
 
+// randomSecret returns a fresh base64 secret for signing JWTs in development,
+// so the server never signs with the public default committed to the repo.
+func randomSecret() (string, error) {
+	b := make([]byte, 48)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
+}
+
 func main() {
 	cfg := config.Load()
 	ctx := context.Background()
 	logger := api.Logger
 
-	// Fail closed on a weak/missing signing secret in production; warn in dev.
-	if cfg.JWTSecret == "" || cfg.JWTSecret == config.DefaultJWTSecret || len(cfg.JWTSecret) < 32 {
+	// A weak, missing, or default signing secret is fatal in production. In
+	// development we never sign with the public default committed to the repo
+	// (anyone could forge tokens with it) — generate an ephemeral random secret
+	// instead. IsProd() fails closed, so a missing or misspelled APP_ENV lands
+	// on the strict production path.
+	if cfg.SecretIsWeak() {
 		if cfg.IsProd() {
-			logger.Error("JWT_SECRET ausente, demasiado corto (<32) o usando el default inseguro; definí uno fuerte en producción")
+			logger.Error("JWT_SECRET ausente, débil (<32) o el default público del repo; definí uno fuerte (producción) o APP_ENV=development para desarrollo local")
 			os.Exit(1)
 		}
-		logger.Warn("JWT_SECRET inseguro/por defecto: aceptable solo en desarrollo (definí APP_ENV=production y un JWT_SECRET fuerte en prod)")
+		secret, err := randomSecret()
+		if err != nil {
+			logger.Error("no se pudo generar un secreto de desarrollo", "error", err)
+			os.Exit(1)
+		}
+		cfg.JWTSecret = secret
+		logger.Warn("JWT_SECRET inseguro o ausente: usando un secreto EFÍMERO aleatorio para desarrollo; definí JWT_SECRET para que las sesiones persistan entre reinicios")
 	}
 
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
@@ -62,6 +84,11 @@ func main() {
 	}
 
 	app := api.NewApp(pool, cfg)
+
+	// Periodically purge terminal idempotency keys so the table doesn't grow
+	// without bound (a key is only needed within a client's retry window).
+	go app.ReapIdempotencyKeys(ctx, 6*time.Hour)
+
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           app.Router(),

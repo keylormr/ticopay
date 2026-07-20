@@ -28,13 +28,17 @@ ticopay/
 docker compose up -d
 ```
 
-**2. Backend** (necesita Go 1.23):
+**2. Backend** (necesita Go 1.25):
 
 ```bash
 cd backend
-cp .env.example .env        # opcional; ya hay defaults
-go run ./cmd/server         # escucha en :8080, migra y siembra demo
+cp .env.example .env                     # y exportá sus variables en tu shell
+APP_ENV=development go run ./cmd/server   # local: :8080, migra y siembra demo
 ```
+
+> Sin `APP_ENV=development` el server arranca en modo producción (falla cerrado):
+> exige un `JWT_SECRET` fuerte y no siembra datos demo. Es deliberado — así un
+> despliegue al que se le olvide `APP_ENV` no queda en modo inseguro.
 
 **3. Frontend**:
 
