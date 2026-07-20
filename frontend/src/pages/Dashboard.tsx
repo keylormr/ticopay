@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { api, type Account, type Capabilities, type Rates } from '../api'
+import { lazy, Suspense, useState } from 'react'
+import { api, type Account } from '../api'
 import { useAuth } from '../auth'
+import { useRates } from '../rates'
 import { useI18n } from '../i18n'
 import { Brand } from '../components/Brand'
 import { CoinLogo } from '../components/CoinLogo'
@@ -40,28 +41,18 @@ const TABS: { id: Tab; icon: string }[] = [
 const ADMIN_TAB: { id: Tab; icon: string } = { id: 'admin', icon: '🛡️' }
 
 export function Dashboard() {
-  const { user, accounts, logout, refresh } = useAuth()
+  const { user, accounts, caps, logout, refresh } = useAuth()
+  const { rates } = useRates()
   const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('inicio')
   const [version, setVersion] = useState(0)
-  const [rates, setRates] = useState<Rates | null>(null)
   const [showAllCrypto, setShowAllCrypto] = useState(false)
-  const [caps, setCaps] = useState<Capabilities | null>(null)
 
-  useEffect(() => {
-    api.rates().then(setRates).catch(() => {})
-  }, [version])
-
-  // The admin tab appears only for back-office roles. The server returns the
-  // caller's capabilities; the role itself isn't trusted client-side — every
-  // admin endpoint is enforced on the server regardless of what we render.
-  useEffect(() => {
-    api
-      .adminWhoami()
-      .then((r) => setCaps(r.capabilities))
-      .catch(() => setCaps(null))
-  }, [])
-
+  // rates come from the shared RatesProvider (loaded in parallel with the auth
+  // me() call) and capabilities ride along in that me() response, so the
+  // dashboard no longer fires its own rates fetch or a separate /admin/whoami
+  // round-trip on every mount. The admin tab still gates on server-derived
+  // capabilities; every admin endpoint is enforced server-side regardless.
   const visibleTabs = caps?.backoffice ? [...TABS, ADMIN_TAB] : TABS
 
   async function reload() {

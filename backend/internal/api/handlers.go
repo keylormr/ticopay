@@ -44,7 +44,18 @@ func (a *App) handleMe(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not load accounts")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"user": u, "accounts": accounts})
+	// Fold the caller's back-office capabilities into /me so the client doesn't
+	// need a separate /admin/whoami round-trip on every load. The role never
+	// leaves the server; only the derived capability flags do, and every
+	// endpoint is still enforced server-side (these are UX hints, not access
+	// control). A read failure falls back to the least-privileged role.
+	role := roleUser
+	if err := a.pool.QueryRow(ctx, `SELECT role FROM users WHERE id = $1`, uid).Scan(&role); err != nil {
+		role = roleUser
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"user": u, "accounts": accounts, "capabilities": roleCapabilities(role),
+	})
 }
 
 func (a *App) handleListTransactions(w http.ResponseWriter, r *http.Request) {
