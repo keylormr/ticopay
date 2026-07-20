@@ -3,10 +3,12 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // sinpeComprobante derives a 12-digit numeric reference (SINPE-style) from a
@@ -52,16 +54,19 @@ func (a *App) handleSinpe(w http.ResponseWriter, r *http.Request) {
 		desc = "SINPE Móvil"
 	}
 
-	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
-		txID, newBalance, err := a.transfer(r.Context(), userID(r), phone, "CRC", amountCents, desc, "sinpe")
+	// Recipient name for the receipt (best-effort), resolved before the money
+	// transaction so we don't hold a second pooled connection inside it.
+	_, recipientName, _ := a.resolveUserID(r.Context(), phone)
+
+	fp := "sinpe|" + phone + "|" + strconv.FormatInt(amountCents, 10)
+	a.idempotent(w, r, idempotencyKey(r), fp, func(tx pgx.Tx) (int, map[string]any, error) {
+		txID, newBalance, err := a.transferTx(r.Context(), tx, userID(r), phone, "CRC", amountCents, desc, "sinpe")
 		if err != nil {
 			return 0, nil, err
 		}
-		// Recipient name for the receipt (best-effort).
-		_, name, _ := a.resolveUserID(r.Context(), phone)
 		return http.StatusCreated, map[string]any{
 			"comprobante":   sinpeComprobante(txID),
-			"recipientName": name,
+			"recipientName": recipientName,
 			"amountCents":   amountCents,
 			"currency":      "CRC",
 			"newBalance":    newBalance,

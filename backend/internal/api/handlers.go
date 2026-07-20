@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -119,8 +120,9 @@ func (a *App) handleSendMoney(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
-		txID, newBalance, err := a.transfer(r.Context(), userID(r), to, currency, amountCents,
+	fp := "send|" + strings.ToLower(to) + "|" + currency + "|" + strconv.FormatInt(amountCents, 10)
+	a.idempotent(w, r, idempotencyKey(r), fp, func(tx pgx.Tx) (int, map[string]any, error) {
+		txID, newBalance, err := a.transferTx(r.Context(), tx, userID(r), to, currency, amountCents,
 			strings.TrimSpace(req.Description), "transfer")
 		if err != nil {
 			return 0, nil, err
@@ -167,15 +169,13 @@ func (a *App) handleConvert(w http.ResponseWriter, r *http.Request) {
 
 	uid := userID(r)
 	// Idempotent so a retried/double-submitted conversion replays instead of
-	// converting twice. postConversionTx posts the balanced FX double-entry.
-	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
-		var txID string
-		err := a.inTx(r.Context(), func(tx pgx.Tx) error {
-			id, e := a.postConversionTx(r.Context(), tx, uid, req.From, req.To, fromCents, toCentsVal,
-				"Conversión "+req.From+" → "+req.To)
-			txID = id
-			return e
-		})
+	// converting twice. postConversionTx posts the balanced FX double-entry on
+	// the transaction idempotent() owns, so the key and the money move commit
+	// together.
+	fp := "convert|" + req.From + "|" + req.To + "|" + strconv.FormatInt(fromCents, 10)
+	a.idempotent(w, r, idempotencyKey(r), fp, func(tx pgx.Tx) (int, map[string]any, error) {
+		txID, err := a.postConversionTx(r.Context(), tx, uid, req.From, req.To, fromCents, toCentsVal,
+			"Conversión "+req.From+" → "+req.To)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -222,38 +222,46 @@ func writeTransferError(w http.ResponseWriter, err error) {
 	}
 }
 
-// transfer moves money from the sender's account to the recipient identified by
-// email/phone, both in the given currency. Returns the new transaction id and
-// the sender's resulting balance. Runs as a single transaction and records
-// balanced double-entry ledger rows via postPayment.
+// transferTx moves money from the sender's account to the recipient identified
+// by email/phone, both in the given currency, on the caller's transaction.
+// Returns the new transaction id and the sender's resulting balance, recording
+// balanced double-entry ledger rows via postPayment. The caller owns the
+// transaction so the money move can share a COMMIT with, e.g., an idempotency
+// key row.
+func (a *App) transferTx(ctx context.Context, tx pgx.Tx, senderID, to, currency string, amountCents int64, description, kind string) (string, int64, error) {
+	fromID, fromBalance, err := lockAccount(ctx, tx, senderID, currency)
+	if err != nil {
+		return "", 0, errNoSenderAcct
+	}
+	toID, toUserID, _, err := resolveRecipientAccount(ctx, tx, to, currency)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", 0, errNoRecipient
+	}
+	if err != nil {
+		return "", 0, errTransferOther
+	}
+	if toUserID == senderID {
+		return "", 0, errSelfTransfer
+	}
+	if fromBalance < amountCents {
+		return "", 0, errInsufficient
+	}
+	id, err := a.postPayment(ctx, tx, fromID, toID, currency, amountCents, 0, description, kind)
+	if err != nil {
+		return "", 0, errTransferOther
+	}
+	return id, fromBalance - amountCents, nil
+}
+
+// transfer wraps transferTx in its own transaction for callers that move money
+// standalone (not under idempotent()).
 func (a *App) transfer(ctx context.Context, senderID, to, currency string, amountCents int64, description, kind string) (string, int64, error) {
 	var txID string
 	var newBalance int64
 	err := a.inTx(ctx, func(tx pgx.Tx) error {
-		fromID, fromBalance, err := lockAccount(ctx, tx, senderID, currency)
-		if err != nil {
-			return errNoSenderAcct
-		}
-		toID, toUserID, _, err := resolveRecipientAccount(ctx, tx, to, currency)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return errNoRecipient
-		}
-		if err != nil {
-			return errTransferOther
-		}
-		if toUserID == senderID {
-			return errSelfTransfer
-		}
-		if fromBalance < amountCents {
-			return errInsufficient
-		}
-		id, err := a.postPayment(ctx, tx, fromID, toID, currency, amountCents, 0, description, kind)
-		if err != nil {
-			return errTransferOther
-		}
-		txID = id
-		newBalance = fromBalance - amountCents
-		return nil
+		id, bal, e := a.transferTx(ctx, tx, senderID, to, currency, amountCents, description, kind)
+		txID, newBalance = id, bal
+		return e
 	})
 	if err != nil {
 		return "", 0, err
@@ -261,28 +269,34 @@ func (a *App) transfer(ctx context.Context, senderID, to, currency string, amoun
 	return txID, newBalance, nil
 }
 
-// payOut debits the user's wallet for an outgoing payment with no internal
-// recipient (e.g. a utility bill). Records a transaction with to_account = NULL
-// and a balanced double-entry against SYSTEM:CLEARING (the money leaving the
-// platform), so the ledger stays reconcilable against balances.
+// payOutTx debits the user's wallet for an outgoing payment with no internal
+// recipient (e.g. a utility bill) on the caller's transaction. Records a
+// transaction with to_account = NULL and a balanced double-entry against
+// SYSTEM:CLEARING (the money leaving the platform), so the ledger stays
+// reconcilable against balances.
+func (a *App) payOutTx(ctx context.Context, tx pgx.Tx, senderID, currency string, amountCents int64, description, kind string) (string, int64, error) {
+	fromID, fromBalance, err := lockAccount(ctx, tx, senderID, currency)
+	if err != nil {
+		return "", 0, errNoSenderAcct
+	}
+	if fromBalance < amountCents {
+		return "", 0, errInsufficient
+	}
+	id, err := a.postExternalTx(ctx, tx, fromID, currency, amountCents, description, kind)
+	if err != nil {
+		return "", 0, errTransferOther
+	}
+	return id, fromBalance - amountCents, nil
+}
+
+// payOut wraps payOutTx in its own transaction for standalone callers.
 func (a *App) payOut(ctx context.Context, senderID, currency string, amountCents int64, description, kind string) (string, int64, error) {
 	var txID string
 	var newBalance int64
 	err := a.inTx(ctx, func(tx pgx.Tx) error {
-		fromID, fromBalance, err := lockAccount(ctx, tx, senderID, currency)
-		if err != nil {
-			return errNoSenderAcct
-		}
-		if fromBalance < amountCents {
-			return errInsufficient
-		}
-		id, err := a.postExternalTx(ctx, tx, fromID, currency, amountCents, description, kind)
-		if err != nil {
-			return errTransferOther
-		}
-		txID = id
-		newBalance = fromBalance - amountCents
-		return nil
+		id, bal, e := a.payOutTx(ctx, tx, senderID, currency, amountCents, description, kind)
+		txID, newBalance = id, bal
+		return e
 	})
 	if err != nil {
 		return "", 0, err

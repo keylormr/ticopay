@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -164,47 +165,39 @@ func (a *App) handleContributePool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	contributor := userID(r)
-	// One transaction: lock the pool FOR UPDATE, move the money, and record the
-	// contribution together — no TOCTOU window, and a retried request with an
-	// Idempotency-Key replays instead of contributing twice.
-	a.idempotent(w, r, idempotencyKey(r), func() (int, map[string]any, error) {
-		var respAmount int64
-		var respCurrency string
-		err := a.inTx(r.Context(), func(tx pgx.Tx) error {
-			var ownerID, currency, status, name string
-			err := tx.QueryRow(r.Context(),
-				`SELECT owner_id, currency, status, name FROM pools WHERE id = $1 FOR UPDATE`, id,
-			).Scan(&ownerID, &currency, &status, &name)
-			if errors.Is(err, pgx.ErrNoRows) {
-				return errPoolNotFound
-			}
-			if err != nil {
-				return errTransferOther
-			}
-			if status != "open" {
-				return errPoolClosed
-			}
-			amountCents := toMinor(req.Amount, currency)
-			if amountCents <= 0 {
-				return errBadAmount
-			}
-			txID, err := a.transferToUserTx(r.Context(), tx, contributor, ownerID, currency, amountCents, 0, "Aporte a vaquita: "+name, "pool")
-			if err != nil {
-				return err
-			}
-			if _, err := tx.Exec(r.Context(),
-				`INSERT INTO pool_contributions (pool_id, user_id, amount_cents, tx_id) VALUES ($1, $2, $3, $4)`,
-				id, contributor, amountCents, txID,
-			); err != nil {
-				return errTransferOther
-			}
-			respAmount = amountCents
-			respCurrency = currency
-			return nil
-		})
+	// One transaction — the same one idempotent() owns: lock the pool FOR UPDATE,
+	// move the money, record the contribution AND persist the idempotency result
+	// together. A retried request replays instead of contributing twice, and an
+	// ambiguous commit can't leave the money moved with the key released.
+	fp := "pool|" + id + "|" + strconv.FormatFloat(req.Amount, 'f', -1, 64)
+	a.idempotent(w, r, idempotencyKey(r), fp, func(tx pgx.Tx) (int, map[string]any, error) {
+		var ownerID, currency, status, name string
+		err := tx.QueryRow(r.Context(),
+			`SELECT owner_id, currency, status, name FROM pools WHERE id = $1 FOR UPDATE`, id,
+		).Scan(&ownerID, &currency, &status, &name)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, nil, errPoolNotFound
+		}
+		if err != nil {
+			return 0, nil, errTransferOther
+		}
+		if status != "open" {
+			return 0, nil, errPoolClosed
+		}
+		amountCents := toMinor(req.Amount, currency)
+		if amountCents <= 0 {
+			return 0, nil, errBadAmount
+		}
+		txID, err := a.transferToUserTx(r.Context(), tx, contributor, ownerID, currency, amountCents, 0, "Aporte a vaquita: "+name, "pool")
 		if err != nil {
 			return 0, nil, err
 		}
-		return http.StatusCreated, map[string]any{"status": "ok", "amountCents": respAmount, "currency": respCurrency}, nil
+		if _, err := tx.Exec(r.Context(),
+			`INSERT INTO pool_contributions (pool_id, user_id, amount_cents, tx_id) VALUES ($1, $2, $3, $4)`,
+			id, contributor, amountCents, txID,
+		); err != nil {
+			return 0, nil, errTransferOther
+		}
+		return http.StatusCreated, map[string]any{"status": "ok", "amountCents": amountCents, "currency": currency}, nil
 	})
 }
