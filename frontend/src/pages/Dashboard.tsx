@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { api, type Account } from '../api'
+import { invalidate } from '../cache'
 import { useAuth } from '../auth'
 import { useRates } from '../rates'
 import { useI18n } from '../i18n'
@@ -45,7 +46,6 @@ export function Dashboard() {
   const { rates } = useRates()
   const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('inicio')
-  const [version, setVersion] = useState(0)
   const [showAllCrypto, setShowAllCrypto] = useState(false)
 
   // rates come from the shared RatesProvider (loaded in parallel with the auth
@@ -56,8 +56,11 @@ export function Dashboard() {
   const visibleTabs = caps?.backoffice ? [...TABS, ADMIN_TAB] : TABS
 
   async function reload() {
+    // Refresh balances, then invalidate exactly the read lists a money action
+    // can change so each refetches on its own (instead of a global counter that
+    // refetched every mounted section at once).
     await refresh()
-    setVersion((v) => v + 1)
+    invalidate('tx:list', 'requests:list', 'pools:list')
   }
 
   const accountOf = (code: string) => accounts.find((a) => a.currency === code)
@@ -178,7 +181,7 @@ export function Dashboard() {
               )}
             </div>
 
-            <Movimientos version={version} />
+            <Movimientos />
           </>
         )}
 
@@ -187,9 +190,9 @@ export function Dashboard() {
             {tab === 'sinpe' && <Sinpe reload={reload} />}
             {tab === 'convertir' && <Convertir reload={reload} />}
             {tab === 'enviar' && <SendMoney reload={reload} />}
-            {tab === 'cobrar' && <Cobros version={version} reload={reload} />}
+            {tab === 'cobrar' && <Cobros reload={reload} />}
             {tab === 'servicios' && <Servicios reload={reload} />}
-            {tab === 'vaquitas' && <Vaquitas version={version} reload={reload} />}
+            {tab === 'vaquitas' && <Vaquitas reload={reload} />}
             {tab === 'comercio' && <Comercio reload={reload} />}
             {tab === 'cuenta' && <AccountTab />}
             {tab === 'admin' && caps?.backoffice && <Admin caps={caps} />}

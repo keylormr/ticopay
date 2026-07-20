@@ -1,11 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { ApiError, api, type Currency, type Pool } from '../api'
+import { useCached, invalidate } from '../cache'
 import { useI18n } from '../i18n'
 import { formatMoney } from '../format'
 import { ShareCard } from '../components/ShareCard'
 import { CurrencySelect } from '../components/CurrencySelect'
 
-export function Vaquitas({ version, reload }: { version: number; reload: () => Promise<void> }) {
+export function Vaquitas({ reload }: { reload: () => Promise<void> }) {
   const { t } = useI18n()
   const [name, setName] = useState('')
   const [goal, setGoal] = useState('')
@@ -15,19 +16,9 @@ export function Vaquitas({ version, reload }: { version: number; reload: () => P
   const [error, setError] = useState('')
   const [createdId, setCreatedId] = useState('')
 
-  const [mine, setMine] = useState<Pool[]>([])
-  const [joined, setJoined] = useState<Pool[]>([])
-
-  function load() {
-    api
-      .listPools()
-      .then((r) => {
-        setMine(r.mine)
-        setJoined(r.joined)
-      })
-      .catch(() => {})
-  }
-  useEffect(load, [version])
+  const { data } = useCached('pools:list', () => api.listPools())
+  const mine = data?.mine ?? []
+  const joined = data?.joined ?? []
 
   async function onCreate(e: FormEvent) {
     e.preventDefault()
@@ -49,7 +40,7 @@ export function Vaquitas({ version, reload }: { version: number; reload: () => P
       setName('')
       setGoal('')
       setDescription('')
-      load()
+      invalidate('pools:list')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('vaq.err.create'))
     } finally {
@@ -93,11 +84,11 @@ export function Vaquitas({ version, reload }: { version: number; reload: () => P
           <h2>{t('vaq.mine')}</h2>
           {mine.length === 0 && joined.length === 0 && <div className="empty">{t('vaq.empty')}</div>}
           {mine.map((p) => (
-            <PoolCard key={p.id} pool={p} reload={async () => { await reload(); load() }} />
+            <PoolCard key={p.id} pool={p} reload={reload} />
           ))}
           {joined.length > 0 && <h2 style={{ marginTop: 20 }}>{t('vaq.joined')}</h2>}
           {joined.map((p) => (
-            <PoolCard key={p.id} pool={p} reload={async () => { await reload(); load() }} />
+            <PoolCard key={p.id} pool={p} reload={reload} />
           ))}
         </section>
       </div>
