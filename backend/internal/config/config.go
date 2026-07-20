@@ -25,6 +25,7 @@ type Config struct {
 	ResendFrom    string // verified sender, e.g. "Tico Pay <no-reply@tudominio.cr>"
 	EmailDebug    bool   // EMAIL_DEBUG: dev log sender prints links. Never in prod.
 	AdminEmail    string // ADMIN_EMAIL: promoted to the admin role on startup (prod admin bootstrap)
+	MetricsToken  string // METRICS_TOKEN: bearer token guarding /metrics; empty disables the endpoint
 }
 
 func Load() Config {
@@ -45,6 +46,7 @@ func Load() Config {
 		ResendFrom:    env("RESEND_FROM", "onboarding@resend.dev"),
 		EmailDebug:    env("EMAIL_DEBUG", "") == "true",
 		AdminEmail:    env("ADMIN_EMAIL", ""),
+		MetricsToken:  env("METRICS_TOKEN", ""),
 	}
 	// Defense in depth: a hardened (production) environment never seeds demo
 	// data — which includes a public-password admin account — regardless of

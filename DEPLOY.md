@@ -33,6 +33,7 @@ Variables de entorno (coinciden con `backend/internal/config/config.go`):
 | `CORS_ORIGINS`   | `https://<tu-app>.vercel.app` (sin slash final)        |
 | `RUN_MIGRATIONS` | `true` (solo 1er deploy / cuando agregués migración)   |
 | `SEED_DEMO`      | en `production` se ignora (nunca se siembra demo)      |
+| `METRICS_TOKEN`  | opcional: token bearer para `GET /metrics` (formato Prometheus). Vacío = endpoint deshabilitado (404) |
 
 - Verificar: `https://ticopay.onrender.com/health`
 - Tras el 1er deploy: **quitar** `RUN_MIGRATIONS`.
