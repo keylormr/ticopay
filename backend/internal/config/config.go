@@ -13,7 +13,7 @@ const DefaultJWTSecret = "dev-secret-change-in-production-please-32+"
 
 type Config struct {
 	Port          string
-	AppEnv        string // APP_ENV: "production" enables prod hardening (strong secret required, no demo seed)
+	AppEnv        string // APP_ENV: prod hardening unless set to an explicit dev marker (development/dev/test/local); blank or unknown → production (fail closed)
 	DatabaseURL   string
 	JWTSecret     string
 	AccessTTL     time.Duration
@@ -28,9 +28,12 @@ type Config struct {
 }
 
 func Load() Config {
-	return Config{
-		Port:          env("PORT", "8080"),
-		AppEnv:        env("APP_ENV", "development"),
+	c := Config{
+		Port: env("PORT", "8080"),
+		// Blank default (not "development") so a forgotten APP_ENV lands on the
+		// fail-closed production path in IsProd(), not on dev mode. Local runs
+		// must set APP_ENV=development explicitly (see .env.example / README).
+		AppEnv:        env("APP_ENV", ""),
 		DatabaseURL:   env("DATABASE_URL", "postgres://ticopay:ticopay_dev@localhost:5433/ticopay?sslmode=disable"),
 		JWTSecret:     env("JWT_SECRET", DefaultJWTSecret),
 		AccessTTL:     15 * time.Minute,
@@ -43,11 +46,38 @@ func Load() Config {
 		EmailDebug:    env("EMAIL_DEBUG", "") == "true",
 		AdminEmail:    env("ADMIN_EMAIL", ""),
 	}
+	// Defense in depth: a hardened (production) environment never seeds demo
+	// data — which includes a public-password admin account — regardless of
+	// SEED_DEMO. Together with the fail-closed IsProd(), a single forgotten
+	// APP_ENV can't leave a public admin credential in a prod database.
+	if c.IsProd() {
+		c.SeedDemo = false
+	}
+	return c
 }
 
-// IsProd reports whether APP_ENV selects production hardening.
+// IsProd reports whether production hardening applies. It fails CLOSED: only a
+// small set of explicit development markers disable hardening; anything else —
+// an unexpected or misspelled APP_ENV like "prod" or "staging" — is treated as
+// production. This prevents a typo from silently dropping the prod safeguards
+// (strong-secret enforcement, no demo seed, HSTS). The default APP_ENV is
+// "development" so a plain local run stays in dev; a real deploy must not leave
+// APP_ENV blank or mistyped and expect hardening to switch off.
 func (c Config) IsProd() bool {
-	return strings.EqualFold(c.AppEnv, "production")
+	switch strings.ToLower(strings.TrimSpace(c.AppEnv)) {
+	case "development", "dev", "test", "local":
+		return false
+	default:
+		return true
+	}
+}
+
+// SecretIsWeak reports whether the JWT signing secret is unset, the public dev
+// default committed to the repo, or too short (<32) to be safe. A weak secret
+// is fatal in production; in development the server replaces it with an
+// ephemeral random one rather than ever signing with the public default.
+func (c Config) SecretIsWeak() bool {
+	return c.JWTSecret == "" || c.JWTSecret == DefaultJWTSecret || len(c.JWTSecret) < 32
 }
 
 // splitCSV parses a comma-separated env value (e.g. multiple CORS origins),

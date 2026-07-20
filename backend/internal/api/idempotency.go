@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -160,4 +161,28 @@ func nullIfEmpty(s string) any {
 		return nil
 	}
 	return s
+}
+
+// ReapIdempotencyKeys deletes idempotency keys older than the retention window
+// on a fixed interval, keeping the table bounded — a key only matters within a
+// client's retry window, well under the window here. It runs until ctx is
+// cancelled and is safe to launch as a goroutine at startup.
+func (a *App) ReapIdempotencyKeys(ctx context.Context, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ct, err := a.pool.Exec(c, `DELETE FROM idempotency_keys WHERE created_at < now() - interval '7 days'`)
+			cancel()
+			if err != nil {
+				Logger.Error("idempotency reap failed", "error", err)
+			} else if n := ct.RowsAffected(); n > 0 {
+				Logger.Info("idempotency keys reaped", "count", n)
+			}
+		}
+	}
 }
