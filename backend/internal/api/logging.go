@@ -21,7 +21,10 @@ func slogRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		start := time.Now()
+		metrics.inflight.Add(1)
+		defer metrics.inflight.Add(-1)
 		next.ServeHTTP(ww, r)
+		recordRequest(ww.Status())
 
 		attrs := []any{
 			"method", r.Method,

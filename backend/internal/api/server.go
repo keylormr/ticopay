@@ -60,6 +60,9 @@ func (a *App) Router() http.Handler {
 	r.Use(withLang)
 
 	r.Get("/health", a.handleHealth)
+	// Process metrics in Prometheus format, gated by METRICS_TOKEN (404 when
+	// unset). Public route so a scraper needn't hold a user session.
+	r.Get("/metrics", a.handleMetrics)
 
 	r.Route("/api", func(r chi.Router) {
 		// Rate-limit auth attempts per IP to slow brute force.
