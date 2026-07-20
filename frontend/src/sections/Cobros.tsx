@@ -1,11 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { ApiError, api, type Currency, type PaymentRequest } from '../api'
+import { useCached, invalidate } from '../cache'
 import { useI18n } from '../i18n'
 import { formatMoney } from '../format'
 import { ShareCard } from '../components/ShareCard'
 import { CurrencySelect } from '../components/CurrencySelect'
 
-export function Cobros({ version, reload }: { version: number; reload: () => Promise<void> }) {
+export function Cobros({ reload }: { reload: () => Promise<void> }) {
   const { t } = useI18n()
   const [to, setTo] = useState('')
   const [amount, setAmount] = useState('')
@@ -15,19 +16,9 @@ export function Cobros({ version, reload }: { version: number; reload: () => Pro
   const [error, setError] = useState('')
   const [createdId, setCreatedId] = useState('')
 
-  const [incoming, setIncoming] = useState<PaymentRequest[]>([])
-  const [outgoing, setOutgoing] = useState<PaymentRequest[]>([])
-
-  function load() {
-    api
-      .listRequests()
-      .then((r) => {
-        setIncoming(r.incoming)
-        setOutgoing(r.outgoing)
-      })
-      .catch(() => {})
-  }
-  useEffect(load, [version])
+  const { data } = useCached('requests:list', () => api.listRequests())
+  const incoming = data?.incoming ?? []
+  const outgoing = data?.outgoing ?? []
 
   async function onCreate(e: FormEvent) {
     e.preventDefault()
@@ -45,7 +36,7 @@ export function Cobros({ version, reload }: { version: number; reload: () => Pro
       setTo('')
       setAmount('')
       setDescription('')
-      load()
+      invalidate('requests:list')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('cobros.err.create'))
     } finally {
@@ -100,7 +91,7 @@ export function Cobros({ version, reload }: { version: number; reload: () => Pro
           {incoming.length === 0 && outgoing.length === 0 && <div className="empty">{t('cobros.empty')}</div>}
 
           {incoming.map((r) => (
-            <PayRow key={r.id} req={r} reload={async () => { await reload(); load() }} />
+            <PayRow key={r.id} req={r} reload={reload} />
           ))}
 
           {outgoing.map((r) => (

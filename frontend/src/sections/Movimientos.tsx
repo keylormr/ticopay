@@ -1,23 +1,16 @@
-import { useEffect, useState } from 'react'
 import { api, type Transaction } from '../api'
+import { useCached } from '../cache'
 import { useI18n } from '../i18n'
 import { formatDate, formatMoney } from '../format'
 
 const ICON: Record<Transaction['direction'], string> = { in: '↓', out: '↑', self: '⇄' }
 
-export function Movimientos({ version }: { version: number }) {
+export function Movimientos() {
   const { t } = useI18n()
-  const [txs, setTxs] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    setLoading(true)
-    api
-      .transactions()
-      .then((r) => setTxs(r.transactions))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [version])
+  // Cached: returning to the home tab shows the last movement list instantly;
+  // a money action invalidates 'tx:list', which refetches it here.
+  const { data, loading } = useCached('tx:list', () => api.transactions())
+  const txs = data?.transactions ?? []
 
   function txTitle(tx: Transaction): string {
     if (tx.kind === 'service') return tx.description || t('mov.servicio')
