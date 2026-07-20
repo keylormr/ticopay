@@ -288,7 +288,7 @@ export const api = {
     return request<AuthResult>('/api/auth/login', { method: 'POST', body: body({ email, password, totpCode }) }, false)
   },
   me() {
-    return request<{ user: User; accounts: Account[] }>('/api/me')
+    return request<{ user: User; accounts: Account[]; capabilities?: Capabilities }>('/api/me')
   },
   logout() {
     // Revokes every session server-side (bumps token_version). Best-effort:

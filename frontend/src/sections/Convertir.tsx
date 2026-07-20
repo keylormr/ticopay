@@ -1,23 +1,22 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { ApiError, api, type Currency, type Rates } from '../api'
+import { useState, type FormEvent } from 'react'
+import { ApiError, api, type Currency } from '../api'
 import { useI18n } from '../i18n'
+import { useRates } from '../rates'
 import { CurrencySelect } from '../components/CurrencySelect'
 import { CRYPTO, metaOf } from '../currencies'
 import { formatMoney } from '../format'
 
 export function Convertir({ reload }: { reload: () => Promise<void> }) {
   const { t } = useI18n()
-  const [rates, setRates] = useState<Rates | null>(null)
+  // Shared rates: already in memory from the dashboard, so the live preview is
+  // instant instead of waiting on its own fetch.
+  const { rates } = useRates()
   const [from, setFrom] = useState<Currency>('USD')
   const [to, setTo] = useState<Currency>('CRC')
   const [amount, setAmount] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    api.rates().then(setRates).catch(() => {})
-  }, [])
 
   function swap() {
     setFrom(to)
