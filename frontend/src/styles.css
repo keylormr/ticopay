@@ -403,6 +403,46 @@ button {
   color: var(--muted);
 }
 
+/* --- boot screen: shown while the app loads / the cold backend wakes up --- */
+.boot {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  color: var(--muted);
+  background: var(--bg);
+}
+.boot-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: var(--cr-blue);
+  animation: boot-spin 0.8s linear infinite;
+}
+.boot-msg {
+  margin: 0;
+  max-width: 32ch;
+  text-align: center;
+  font-size: 14px;
+}
+.section-loading {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--muted);
+}
+@keyframes boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boot-spinner {
+    animation-duration: 2.4s;
+  }
+}
+
 /* --- selects share input styling --- */
 select {
   width: 100%;
