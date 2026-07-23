@@ -90,7 +90,7 @@ func (a *App) loadCredentials(ctx context.Context, uid string) ([]webauthn.Crede
 				// WebAuthn's signature counter is a uint32 by spec; signCount comes
 				// from our own sign_count column, which only ever stores values the
 				// authenticator produced, so it can't exceed uint32 range.
-				SignCount: uint32(signCount), //nosec G115 -- WebAuthn SignCount is uint32 by spec; value is our own stored counter
+				SignCount: uint32(signCount), // #nosec G115 -- WebAuthn SignCount is uint32 by spec; value is our own stored counter
 			},
 		})
 	}
