@@ -33,7 +33,7 @@ func withLang(next http.Handler) http.Handler {
 }
 
 // errsEN maps the Spanish (default) error messages to English.
-var errsEN = map[string]string{
+var errsEN = map[string]string{ //nosec G101 -- translation dictionary of UI messages, not credentials
 	"solicitud inválida":             "invalid request",
 	"moneda no soportada":            "unsupported currency",
 	"el monto debe ser mayor a cero": "amount must be greater than zero",
@@ -106,7 +106,7 @@ var errsEN = map[string]string{
 // errsES maps the technical English fallback messages (mostly 500s, which were
 // never user-facing copy) to friendly Spanish, since Spanish is the default UI
 // language. Keeping these here avoids touching dozens of handler call sites.
-var errsES = map[string]string{
+var errsES = map[string]string{ //nosec G101 -- translation dictionary of UI messages, not credentials
 	"database error":                           "error de base de datos",
 	"user not found":                           "usuario no encontrado",
 	"missing account for currency":             "no tenés una cuenta para esa moneda",
