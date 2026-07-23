@@ -156,6 +156,11 @@ function LedgerHealthCard({ health }: { health: LedgerHealth | null }) {
           ))}
         </div>
       </div>
+      {health.driftTotalCents > 0 && (
+        <div className="desc" style={{ marginTop: 10, color: '#E03131', fontWeight: 600 }}>
+          {t('rep.ledger.drift')}: {health.driftTotalCents} ({health.drift.length})
+        </div>
+      )}
     </section>
   )
 }
