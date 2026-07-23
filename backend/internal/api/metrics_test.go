@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"ticopay/backend/internal/config"
+	"tuanispay/backend/internal/config"
 )
 
 func fireMetrics(a *App, token string) *httptest.ResponseRecorder {
@@ -50,7 +50,7 @@ func TestMetricsRequiresToken(t *testing.T) {
 		t.Fatalf("metrics with valid token: %d, want 200", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"ticopay_uptime_seconds", "ticopay_http_requests_total", "ticopay_goroutines"} {
+	for _, want := range []string{"tuanispay_uptime_seconds", "tuanispay_http_requests_total", "tuanispay_goroutines"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("metrics body missing %q:\n%s", want, body)
 		}

@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
-	"ticopay/backend/internal/models"
+	"tuanispay/backend/internal/models"
 )
 
 func (a *App) handleCreatePool(w http.ResponseWriter, r *http.Request) {

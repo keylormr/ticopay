@@ -73,7 +73,7 @@ export function PayRequest() {
         ) : (
           <>
             <h1>{t('pay.title', { name: req.requesterName })}</h1>
-            <p className="sub">{req.description || t('pay.byTicoPay')}</p>
+            <p className="sub">{req.description || t('pay.byTuanisPay')}</p>
             <div className="pay-amount">
               {req.amountCents != null ? formatMoney(req.amountCents, req.currency) : t('pay.openAmount')}
             </div>

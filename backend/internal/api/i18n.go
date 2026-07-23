@@ -55,7 +55,7 @@ var errsEN = map[string]string{ // #nosec G101 -- translation dictionary of UI m
 	"correo o contraseña incorrectos":                     "invalid email or password",
 	"demasiados intentos, probá de nuevo en unos minutos": "too many attempts, try again in a few minutes",
 
-	"no encontramos a esa persona en Tico Pay": "we couldn't find that person on Tico Pay",
+	"no encontramos a esa persona en TuanisPay": "we couldn't find that person on TuanisPay",
 	"cobro no encontrado":                      "request not found",
 	"este cobro ya fue pagado o cancelado":     "this request was already paid or cancelled",
 

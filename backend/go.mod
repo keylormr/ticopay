@@ -1,4 +1,4 @@
-module ticopay/backend
+module tuanispay/backend
 
 go 1.25.0
 

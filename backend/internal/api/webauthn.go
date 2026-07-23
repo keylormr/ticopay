@@ -17,7 +17,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
-	"ticopay/backend/internal/config"
+	"tuanispay/backend/internal/config"
 )
 
 // newWebAuthn derives the Relying Party config from the configured CORS origin
@@ -32,7 +32,7 @@ func newWebAuthn(cfg config.Config) *webauthn.WebAuthn {
 		return nil
 	}
 	w, err := webauthn.New(&webauthn.Config{
-		RPDisplayName: "Tico Pay",
+		RPDisplayName: "TuanisPay",
 		RPID:          u.Hostname(),
 		RPOrigins:     cfg.CORSOrigins,
 	})

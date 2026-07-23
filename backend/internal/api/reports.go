@@ -73,7 +73,7 @@ func (a *App) handleReportOverview(w http.ResponseWriter, r *http.Request) {
 		 FROM transactions t
 		 JOIN accounts a ON a.id = t.from_account_id OR a.id = t.to_account_id
 		 JOIN users u ON u.id = a.user_id
-		 WHERE t.created_at >= now() - interval '30 days' AND lower(u.email) NOT LIKE '%@system.ticopay'`,
+		 WHERE t.created_at >= now() - interval '30 days' AND lower(u.email) NOT LIKE '%@system.tuanispay'`,
 	).Scan(&active30d); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not load active users")
 		return

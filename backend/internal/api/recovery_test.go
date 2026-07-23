@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"ticopay/backend/internal/auth"
+	"tuanispay/backend/internal/auth"
 )
 
 func TestGenRecoveryCodeFormat(t *testing.T) {

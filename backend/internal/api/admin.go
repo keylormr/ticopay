@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
-	"ticopay/backend/internal/models"
+	"tuanispay/backend/internal/models"
 )
 
 // handleAdminWhoami answers only for back-office roles (the route is behind

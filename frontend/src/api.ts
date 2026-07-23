@@ -201,8 +201,8 @@ export interface AuthResult {
   accounts: Account[]
 }
 
-const ACCESS_KEY = 'ticopay.access'
-const REFRESH_KEY = 'ticopay.refresh'
+const ACCESS_KEY = 'tuanispay.access'
+const REFRESH_KEY = 'tuanispay.refresh'
 
 export const tokens = {
   get access() {
@@ -255,7 +255,7 @@ async function refreshTokens(): Promise<boolean> {
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const headers = new Headers(init.headers)
   headers.set('Content-Type', 'application/json')
-  headers.set('X-Lang', localStorage.getItem('ticopay.lang') || 'es')
+  headers.set('X-Lang', localStorage.getItem('tuanispay.lang') || 'es')
   if (tokens.access) headers.set('Authorization', `Bearer ${tokens.access}`)
 
   const res = await fetch(`${API_URL}${path}`, { ...init, headers })

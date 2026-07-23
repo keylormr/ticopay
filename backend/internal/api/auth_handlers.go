@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"ticopay/backend/internal/auth"
-	"ticopay/backend/internal/models"
+	"tuanispay/backend/internal/auth"
+	"tuanispay/backend/internal/models"
 )
 
 type authResponse struct {

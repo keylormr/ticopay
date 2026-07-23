@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"ticopay/backend/internal/db"
+	"tuanispay/backend/internal/db"
 )
 
 // These tests exercise the real money path against a Postgres database. They

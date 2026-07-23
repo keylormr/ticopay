@@ -15,7 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"ticopay/backend/internal/auth"
+	"tuanispay/backend/internal/auth"
 )
 
 const (
@@ -103,11 +103,11 @@ func (a *App) issueResetToken(uid, name, email string) {
 
 func (a *App) sendResetEmail(ctx context.Context, to, name, rawToken string) {
 	link := fmt.Sprintf("%s/reset?token=%s", a.appURL(), rawToken)
-	subject := "Restablecé tu contraseña de Tico Pay"
+	subject := "Restablecé tu contraseña de TuanisPay"
 	body := fmt.Sprintf(
 		`<div style="font-family:system-ui,sans-serif;max-width:480px">
 		  <h2>Hola %s 👋</h2>
-		  <p>Pediste restablecer tu contraseña de <strong>Tico Pay</strong>. Hacé clic en el botón (el enlace vence en 30 minutos):</p>
+		  <p>Pediste restablecer tu contraseña de <strong>TuanisPay</strong>. Hacé clic en el botón (el enlace vence en 30 minutos):</p>
 		  <p><a href="%s" style="background:#002b7f;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block">Cambiar mi contraseña</a></p>
 		  <p style="color:#64748b;font-size:13px">Si no fuiste vos, ignorá este correo: tu contraseña no cambia.</p>
 		</div>`,
@@ -206,10 +206,10 @@ func (a *App) sendVerificationEmail(ctx context.Context, uid, to, name string) {
 		return
 	}
 	link := fmt.Sprintf("%s/verify-email?token=%s", a.appURL(), raw)
-	subject := "Confirmá tu correo en Tico Pay"
+	subject := "Confirmá tu correo en TuanisPay"
 	body := fmt.Sprintf(
 		`<div style="font-family:system-ui,sans-serif;max-width:480px">
-		  <h2>¡Bienvenido a Tico Pay, %s! 🇨🇷</h2>
+		  <h2>¡Bienvenido a TuanisPay, %s! 🇨🇷</h2>
 		  <p>Confirmá tu correo para asegurar tu cuenta (el enlace vence en 24 horas):</p>
 		  <p><a href="%s" style="background:#002b7f;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block">Confirmar mi correo</a></p>
 		  <p style="color:#64748b;font-size:13px">Si no creaste esta cuenta, ignorá este correo.</p>

@@ -5,7 +5,7 @@ import "testing"
 // Uses a private guard instance so tests don't pollute the global one.
 func TestLoginGuardLockout(t *testing.T) {
 	g := &loginGuard{fails: map[string]*attemptInfo{}}
-	key := "test@ticopay.cr"
+	key := "test@tuanispay.cr"
 
 	for i := 0; i < maxLoginFails-1; i++ {
 		g.fail(key)
@@ -19,7 +19,7 @@ func TestLoginGuardLockout(t *testing.T) {
 	}
 
 	// Other keys are unaffected.
-	if g.locked("otra@ticopay.cr") {
+	if g.locked("otra@tuanispay.cr") {
 		t.Fatal("unrelated key reported locked")
 	}
 

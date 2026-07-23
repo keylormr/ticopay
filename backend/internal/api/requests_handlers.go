@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
-	"ticopay/backend/internal/models"
+	"tuanispay/backend/internal/models"
 )
 
 // resolveUserID looks up a user id + name by email or phone.
@@ -54,7 +54,7 @@ func (a *App) handleCreateRequest(w http.ResponseWriter, r *http.Request) {
 	if to := strings.TrimSpace(req.To); to != "" {
 		id, _, err := a.resolveUserID(ctx, to)
 		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusNotFound, "no encontramos a esa persona en Tico Pay")
+			writeError(w, http.StatusNotFound, "no encontramos a esa persona en TuanisPay")
 			return
 		}
 		if err != nil {

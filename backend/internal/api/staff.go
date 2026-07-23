@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"ticopay/backend/internal/auth"
+	"tuanispay/backend/internal/auth"
 )
 
 // systemEmailFilter excludes the reserved system users from back-office views.
 // lower() guards against a future system user inserted with mixed case.
-const systemEmailFilter = "lower(email) NOT LIKE '%@system.ticopay'"
+const systemEmailFilter = "lower(email) NOT LIKE '%@system.tuanispay'"
 
 // adminGovLock serializes admin-governance changes (promoting/demoting/disabling
 // admins) via a transaction-level advisory lock, so two concurrent demotions
@@ -142,7 +142,7 @@ func (a *App) handleAdminCreateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
-	if strings.HasSuffix(req.Email, "@system.ticopay") {
+	if strings.HasSuffix(req.Email, "@system.tuanispay") {
 		writeError(w, http.StatusBadRequest, "correo reservado")
 		return
 	}

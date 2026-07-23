@@ -7,8 +7,8 @@
 
 -- Reserved system users for external clearing and FX positions (never log in).
 INSERT INTO users (id, email, full_name, password_hash, kyc_status, email_verified) VALUES
-  ('00000000-0000-0000-0000-0000000000c1', 'clearing@system.ticopay', 'SYSTEM CLEARING', '', 'verified', true),
-  ('00000000-0000-0000-0000-0000000000f1', 'fx@system.ticopay',       'SYSTEM FX',       '', 'verified', true)
+  ('00000000-0000-0000-0000-0000000000c1', 'clearing@system.tuanispay', 'SYSTEM CLEARING', '', 'verified', true),
+  ('00000000-0000-0000-0000-0000000000f1', 'fx@system.tuanispay',       'SYSTEM FX',       '', 'verified', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Flag system accounts; their balances may be negative (signed positions).

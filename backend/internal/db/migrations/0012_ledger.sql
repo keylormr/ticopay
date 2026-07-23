@@ -6,7 +6,7 @@
 -- Reserved system user that owns the platform fee account. It never logs in
 -- (empty password hash); its accounts only ever receive commission credits.
 INSERT INTO users (id, email, full_name, password_hash, kyc_status, email_verified)
-VALUES ('00000000-0000-0000-0000-0000000000fe', 'fees@system.ticopay', 'SYSTEM FEES', '', 'verified', true)
+VALUES ('00000000-0000-0000-0000-0000000000fe', 'fees@system.tuanispay', 'SYSTEM FEES', '', 'verified', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Per-payment commission kept by the platform (0 for plain P2P).

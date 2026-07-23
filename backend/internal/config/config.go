@@ -22,7 +22,7 @@ type Config struct {
 	RunMigrations bool
 	SeedDemo      bool
 	ResendAPIKey  string // empty → dev log sender (no real emails)
-	ResendFrom    string // verified sender, e.g. "Tico Pay <no-reply@tudominio.cr>"
+	ResendFrom    string // verified sender, e.g. "TuanisPay <no-reply@tudominio.cr>"
 	EmailDebug    bool   // EMAIL_DEBUG: dev log sender prints links. Never in prod.
 	AdminEmail    string // ADMIN_EMAIL: promoted to the admin role on startup (prod admin bootstrap)
 	MetricsToken  string // METRICS_TOKEN: bearer token guarding /metrics; empty disables the endpoint
@@ -35,7 +35,7 @@ func Load() Config {
 		// fail-closed production path in IsProd(), not on dev mode. Local runs
 		// must set APP_ENV=development explicitly (see .env.example / README).
 		AppEnv:        env("APP_ENV", ""),
-		DatabaseURL:   env("DATABASE_URL", "postgres://ticopay:ticopay_dev@localhost:5433/ticopay?sslmode=disable"),
+		DatabaseURL:   env("DATABASE_URL", "postgres://tuanispay:tuanispay_dev@localhost:5433/tuanispay?sslmode=disable"),
 		JWTSecret:     env("JWT_SECRET", DefaultJWTSecret),
 		AccessTTL:     15 * time.Minute,
 		RefreshTTL:    48 * time.Hour, // short refresh window limits the value of a stolen/leaked refresh token

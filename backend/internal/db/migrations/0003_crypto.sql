@@ -10,8 +10,8 @@ ON CONFLICT (user_id, currency) DO NOTHING;
 
 -- Demo crypto balances for María so the wallet isn't empty.
 UPDATE accounts SET balance_cents = 500000
-WHERE currency = 'BTC' AND user_id = (SELECT id FROM users WHERE email = 'maria@ticopay.cr');  -- 0.005 BTC
+WHERE currency = 'BTC' AND user_id = (SELECT id FROM users WHERE email = 'maria@tuanispay.cr');  -- 0.005 BTC
 UPDATE accounts SET balance_cents = 10000000
-WHERE currency = 'ETH' AND user_id = (SELECT id FROM users WHERE email = 'maria@ticopay.cr');  -- 0.1 ETH
+WHERE currency = 'ETH' AND user_id = (SELECT id FROM users WHERE email = 'maria@tuanispay.cr');  -- 0.1 ETH
 UPDATE accounts SET balance_cents = 10000
-WHERE currency = 'USDT' AND user_id = (SELECT id FROM users WHERE email = 'maria@ticopay.cr'); -- 100.00 USDT
+WHERE currency = 'USDT' AND user_id = (SELECT id FROM users WHERE email = 'maria@tuanispay.cr'); -- 100.00 USDT

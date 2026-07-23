@@ -39,7 +39,7 @@ func TestStaffCreateRoleAndStatus(t *testing.T) {
 
 	// Create a support staff account.
 	rec := fireAs(t, admin, http.MethodPost, "/admin/users", "/admin/users",
-		`{"email":"sup@ticopay.cr","fullName":"Soporte Uno","role":"support","password":"password123"}`,
+		`{"email":"sup@tuanispay.cr","fullName":"Soporte Uno","role":"support","password":"password123"}`,
 		a.handleAdminCreateUser, a.requirePerm(permUsersManage))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create staff: %d %s", rec.Code, rec.Body.String())

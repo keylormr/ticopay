@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from 'react'
 
-// Modern, dependency-free SVG charts themed for Tico Pay. Colors lean on the CR
+// Modern, dependency-free SVG charts themed for TuanisPay. Colors lean on the CR
 // palette (blues/reds) with a few accents.
 export const CHART_COLORS = ['#2E75B6', '#E03131', '#2F9E44', '#F08C00', '#7048E8', '#0CA678', '#E8590C', '#1098AD']
 

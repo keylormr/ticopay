@@ -259,7 +259,7 @@ export function AuthPage() {
 
         {mode === 'login' && (
           <div className="hint">
-            <strong>{t('auth.demo')}</strong> maria@ticopay.cr · {t('auth.demo.pwd')} <code>password123</code>
+            <strong>{t('auth.demo')}</strong> maria@tuanispay.cr · {t('auth.demo.pwd')} <code>password123</code>
           </div>
         )}
       </form>

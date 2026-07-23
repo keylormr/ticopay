@@ -71,22 +71,22 @@ func (a *App) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	runtime.ReadMemStats(&mem)
 
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-	fmt.Fprintf(w, "# HELP ticopay_uptime_seconds Process uptime in seconds.\n# TYPE ticopay_uptime_seconds gauge\nticopay_uptime_seconds %d\n",
+	fmt.Fprintf(w, "# HELP tuanispay_uptime_seconds Process uptime in seconds.\n# TYPE tuanispay_uptime_seconds gauge\ntuanispay_uptime_seconds %d\n",
 		int64(time.Since(metrics.startedAt).Seconds()))
-	fmt.Fprint(w, "# HELP ticopay_http_requests_total HTTP requests by status class.\n# TYPE ticopay_http_requests_total counter\n")
-	fmt.Fprintf(w, "ticopay_http_requests_total{class=\"2xx\"} %d\n", metrics.s2xx.Load())
-	fmt.Fprintf(w, "ticopay_http_requests_total{class=\"3xx\"} %d\n", metrics.s3xx.Load())
-	fmt.Fprintf(w, "ticopay_http_requests_total{class=\"4xx\"} %d\n", metrics.s4xx.Load())
-	fmt.Fprintf(w, "ticopay_http_requests_total{class=\"5xx\"} %d\n", metrics.s5xx.Load())
-	fmt.Fprintf(w, "# HELP ticopay_http_requests_inflight In-flight HTTP requests.\n# TYPE ticopay_http_requests_inflight gauge\nticopay_http_requests_inflight %d\n", metrics.inflight.Load())
-	fmt.Fprintf(w, "# HELP ticopay_goroutines Current goroutines.\n# TYPE ticopay_goroutines gauge\nticopay_goroutines %d\n", runtime.NumGoroutine())
-	fmt.Fprintf(w, "# HELP ticopay_mem_alloc_bytes Allocated heap bytes.\n# TYPE ticopay_mem_alloc_bytes gauge\nticopay_mem_alloc_bytes %d\n", mem.Alloc)
+	fmt.Fprint(w, "# HELP tuanispay_http_requests_total HTTP requests by status class.\n# TYPE tuanispay_http_requests_total counter\n")
+	fmt.Fprintf(w, "tuanispay_http_requests_total{class=\"2xx\"} %d\n", metrics.s2xx.Load())
+	fmt.Fprintf(w, "tuanispay_http_requests_total{class=\"3xx\"} %d\n", metrics.s3xx.Load())
+	fmt.Fprintf(w, "tuanispay_http_requests_total{class=\"4xx\"} %d\n", metrics.s4xx.Load())
+	fmt.Fprintf(w, "tuanispay_http_requests_total{class=\"5xx\"} %d\n", metrics.s5xx.Load())
+	fmt.Fprintf(w, "# HELP tuanispay_http_requests_inflight In-flight HTTP requests.\n# TYPE tuanispay_http_requests_inflight gauge\ntuanispay_http_requests_inflight %d\n", metrics.inflight.Load())
+	fmt.Fprintf(w, "# HELP tuanispay_goroutines Current goroutines.\n# TYPE tuanispay_goroutines gauge\ntuanispay_goroutines %d\n", runtime.NumGoroutine())
+	fmt.Fprintf(w, "# HELP tuanispay_mem_alloc_bytes Allocated heap bytes.\n# TYPE tuanispay_mem_alloc_bytes gauge\ntuanispay_mem_alloc_bytes %d\n", mem.Alloc)
 
 	// DB pool saturation — nil-guarded so the endpoint (and its tests) work
 	// without a live pool.
 	if a.pool != nil {
 		st := a.pool.Stat()
-		fmt.Fprintf(w, "# HELP ticopay_db_conns_total Total connections in the pool.\n# TYPE ticopay_db_conns_total gauge\nticopay_db_conns_total %d\n", st.TotalConns())
-		fmt.Fprintf(w, "# HELP ticopay_db_conns_acquired Acquired (in-use) connections.\n# TYPE ticopay_db_conns_acquired gauge\nticopay_db_conns_acquired %d\n", st.AcquiredConns())
+		fmt.Fprintf(w, "# HELP tuanispay_db_conns_total Total connections in the pool.\n# TYPE tuanispay_db_conns_total gauge\ntuanispay_db_conns_total %d\n", st.TotalConns())
+		fmt.Fprintf(w, "# HELP tuanispay_db_conns_acquired Acquired (in-use) connections.\n# TYPE tuanispay_db_conns_acquired gauge\ntuanispay_db_conns_acquired %d\n", st.AcquiredConns())
 	}
 }

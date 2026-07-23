@@ -16,6 +16,6 @@ func CheckPassword(hash, plain string) bool {
 // pays the same bcrypt cost as a real check, closing the user-enumeration
 // timing side channel.
 var DummyHash = func() string {
-	h, _ := bcrypt.GenerateFromPassword([]byte("ticopay-timing-equalizer"), bcrypt.DefaultCost)
+	h, _ := bcrypt.GenerateFromPassword([]byte("tuanispay-timing-equalizer"), bcrypt.DefaultCost)
 	return string(h)
 }()

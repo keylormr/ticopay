@@ -119,7 +119,7 @@ function CreateStaff({ roles, onCreated }: { roles: string[]; onCreated: () => v
         <label htmlFor="su-name">{t('users.name')}</label>
         <input id="su-name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
         <label htmlFor="su-email">{t('users.email')}</label>
-        <input id="su-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="staff@ticopay.cr" />
+        <input id="su-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="staff@tuanispay.cr" />
         <label htmlFor="su-phone">{t('users.phone')}</label>
         <input id="su-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="8888-0000" />
         <label htmlFor="su-role">{t('users.role')}</label>
