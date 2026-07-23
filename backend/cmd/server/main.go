@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"ticopay/backend/internal/api"
-	"ticopay/backend/internal/config"
-	"ticopay/backend/internal/db"
-	"ticopay/backend/internal/seed"
+	"tuanispay/backend/internal/api"
+	"tuanispay/backend/internal/config"
+	"tuanispay/backend/internal/db"
+	"tuanispay/backend/internal/seed"
 )
 
 // randomSecret returns a fresh base64 secret for signing JWTs in development,
@@ -96,7 +96,7 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("Tico Pay API listening", "port", cfg.Port)
+		logger.Info("TuanisPay API listening", "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("server failed", "error", err)
 			os.Exit(1)

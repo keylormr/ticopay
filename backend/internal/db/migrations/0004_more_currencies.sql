@@ -12,6 +12,6 @@ ON CONFLICT (user_id, currency) DO NOTHING;
 
 -- A little extra demo variety for María.
 UPDATE accounts SET balance_cents = 150000000
-WHERE currency = 'SOL' AND user_id = (SELECT id FROM users WHERE email = 'maria@ticopay.cr');  -- 1.5 SOL
+WHERE currency = 'SOL' AND user_id = (SELECT id FROM users WHERE email = 'maria@tuanispay.cr');  -- 1.5 SOL
 UPDATE accounts SET balance_cents = 30000000
-WHERE currency = 'BNB' AND user_id = (SELECT id FROM users WHERE email = 'maria@ticopay.cr');  -- 0.3 BNB
+WHERE currency = 'BNB' AND user_id = (SELECT id FROM users WHERE email = 'maria@tuanispay.cr');  -- 0.3 BNB

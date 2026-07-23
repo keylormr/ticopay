@@ -22,7 +22,7 @@ func TestNormalizeTotpCode(t *testing.T) {
 // The exact round trip login depends on: a code generated from the stored
 // secret at the current time must validate, and a stale/foreign one must not.
 func TestTotpRoundTrip(t *testing.T) {
-	key, err := totp.Generate(totp.GenerateOpts{Issuer: "Tico Pay", AccountName: "test@ticopay.cr"})
+	key, err := totp.Generate(totp.GenerateOpts{Issuer: "TuanisPay", AccountName: "test@tuanispay.cr"})
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestTotpRoundTrip(t *testing.T) {
 		t.Fatalf("freshly generated code %q did not validate", code)
 	}
 	// A code from a different secret must fail.
-	other, _ := totp.Generate(totp.GenerateOpts{Issuer: "Tico Pay", AccountName: "otro@ticopay.cr"})
+	other, _ := totp.Generate(totp.GenerateOpts{Issuer: "TuanisPay", AccountName: "otro@tuanispay.cr"})
 	otherCode, _ := totp.GenerateCode(other.Secret(), time.Now())
 	if otherCode != code && totp.Validate(otherCode, key.Secret()) {
 		t.Fatalf("code from another secret validated")
@@ -50,7 +50,7 @@ func TestTotpRoundTrip(t *testing.T) {
 // monotonically increasing period as time advances — that ordering is what the
 // anti-replay UPDATE relies on to reject a re-used code.
 func TestMatchTOTPPeriod(t *testing.T) {
-	key, err := totp.Generate(totp.GenerateOpts{Issuer: "Tico Pay", AccountName: "replay@ticopay.cr"})
+	key, err := totp.Generate(totp.GenerateOpts{Issuer: "TuanisPay", AccountName: "replay@tuanispay.cr"})
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}

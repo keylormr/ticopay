@@ -1,4 +1,4 @@
--- Tico Pay feature expansion: bi-currency, KYC, payment requests, vaquitas (pools).
+-- TuanisPay feature expansion: bi-currency, KYC, payment requests, vaquitas (pools).
 
 -- 1. KYC fields on users -------------------------------------------------------
 ALTER TABLE users ADD COLUMN IF NOT EXISTS id_type    TEXT;          -- 'fisica' | 'juridica' | 'dimex'
@@ -18,8 +18,8 @@ ALTER TABLE transactions ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'tr
 INSERT INTO accounts (user_id, currency, balance_cents)
 SELECT id, 'USD',
        CASE email
-           WHEN 'maria@ticopay.cr'  THEN 50000  -- $500.00 demo
-           WHEN 'carlos@ticopay.cr' THEN 20000  -- $200.00 demo
+           WHEN 'maria@tuanispay.cr'  THEN 50000  -- $500.00 demo
+           WHEN 'carlos@tuanispay.cr' THEN 20000  -- $200.00 demo
            ELSE 0
        END
 FROM users

@@ -26,7 +26,7 @@ func sinpeComprobante(txID string) string {
 }
 
 // handleSinpe sends a SINPE Móvil transfer: by phone number, in colones,
-// instant. (Demo: settles on Tico Pay's internal ledger.)
+// instant. (Demo: settles on TuanisPay's internal ledger.)
 func (a *App) handleSinpe(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ToPhone     string  `json:"toPhone"`

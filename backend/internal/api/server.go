@@ -12,9 +12,9 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"ticopay/backend/internal/auth"
-	"ticopay/backend/internal/config"
-	"ticopay/backend/internal/email"
+	"tuanispay/backend/internal/auth"
+	"tuanispay/backend/internal/config"
+	"tuanispay/backend/internal/email"
 )
 
 type App struct {

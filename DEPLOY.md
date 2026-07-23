@@ -1,4 +1,4 @@
-# Deploy de Tico Pay
+# Deploy de TuanisPay
 
 Pila gratis sin tarjeta: **Vercel** (frontend) + **Render** (backend Docker) + **Neon** (Postgres).
 Flujo: `git push` a `main` → auto-deploy en Render y Vercel.
@@ -9,17 +9,17 @@ Flujo: `git push` a `main` → auto-deploy en Render y Vercel.
 | Backend  | Render    | Free Web (Docker) | `backend`    |
 | Postgres | Neon      | Free            | —              |
 
-> Tico Pay no usa Redis — Postgres alcanza. Si luego agregás rate-limiting/lockout, sumás Upstash.
+> TuanisPay no usa Redis — Postgres alcanza. Si luego agregás rate-limiting/lockout, sumás Upstash.
 
 ## 1. Neon (Postgres)
 
-1. Crear proyecto **ticopay**, Postgres 16.
+1. Crear proyecto **tuanispay**, Postgres 16.
 2. Copiar la connection string:
-   `postgresql://user:pass@ep-xxx.neon.tech/ticopay?sslmode=require`
+   `postgresql://user:pass@ep-xxx.neon.tech/tuanispay?sslmode=require`
 
 ## 2. Render (backend Go)
 
-**New → Web Service** → repo de ticopay → Root Directory `backend`, Runtime **Docker**, Branch `main`, Instance **Free**.
+**New → Web Service** → repo de tuanispay → Root Directory `backend`, Runtime **Docker**, Branch `main`, Instance **Free**.
 
 Variables de entorno (coinciden con `backend/internal/config/config.go`):
 
@@ -35,9 +35,9 @@ Variables de entorno (coinciden con `backend/internal/config/config.go`):
 | `SEED_DEMO`      | en `production` se ignora (nunca se siembra demo)      |
 | `METRICS_TOKEN`  | opcional: token bearer para `GET /metrics` (formato Prometheus). Vacío = endpoint deshabilitado (404) |
 
-- Verificar: `https://ticopay.onrender.com/health`
+- Verificar: `https://tuanispay.onrender.com/health`
 - Tras el 1er deploy: **quitar** `RUN_MIGRATIONS`.
-- Con `APP_ENV=production` no hay cuenta admin demo: registrá tu cuenta y promovela con `ADMIN_EMAIL`. Si ya desplegaste con datos demo, **desactivá o cambiale la contraseña a `maria@ticopay.cr`** (es admin con contraseña pública).
+- Con `APP_ENV=production` no hay cuenta admin demo: registrá tu cuenta y promovela con `ADMIN_EMAIL`. Si ya desplegaste con datos demo, **desactivá o cambiale la contraseña a `maria@tuanispay.cr`** (es admin con contraseña pública).
 
 > `CORS_ORIGINS` se carga como un slice de **un solo origen** en `config.go`. Si necesitás varios,
 > hay que cambiar el parseo a split por comas.
@@ -48,7 +48,7 @@ Variables de entorno (coinciden con `backend/internal/config/config.go`):
 
 | Variable       | Valor                              |
 | -------------- | ---------------------------------- |
-| `VITE_API_URL` | `https://ticopay.onrender.com` (sin slash final) |
+| `VITE_API_URL` | `https://tuanispay.onrender.com` (sin slash final) |
 
 ## Notas
 

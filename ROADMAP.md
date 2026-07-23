@@ -1,11 +1,11 @@
-# Tico Pay — Roadmap
+# TuanisPay — Roadmap
 
-Estado y pendientes de Tico Pay (pagos CR full-stack). Pensado para retomar en una sesión nueva.
+Estado y pendientes de TuanisPay (pagos CR full-stack). Pensado para retomar en una sesión nueva.
 
-- **Frontend:** https://ticopay.vercel.app · **API:** https://ticopay.onrender.com
+- **Frontend:** https://tuanispay.vercel.app · **API:** https://tuanispay.onrender.com
 - **Stack:** Go (chi + pgx + JWT) en Render · React + Vite (TS) en Vercel · Postgres en Neon
-- **Deploy:** `git push origin main` → Render y Vercel auto-despliegan (repo **público** `kryrmz/ticopay`)
-- **Cuenta demo:** `maria@ticopay.cr` / `password123`
+- **Deploy:** `git push origin main` → Render y Vercel auto-despliegan (repo **público** `kryrmz/tuanispay`)
+- **Cuenta demo:** `maria@tuanispay.cr` / `password123`
 
 ---
 
@@ -22,7 +22,7 @@ Cobro por QR de comercio inspirado en el modelo KiramoPay, montado sobre el wall
 - **Ledger de doble entrada** (`ledger_entries` + trigger DEFERRED de balanceo) y cuenta `SYSTEM:FEES`. Los saldos siguen siendo la fuente operativa; el ledger es el registro auditable de pagos wallet-to-wallet. Migración `0012`.
 - **Idempotencia extremo a extremo** (`Idempotency-Key` + tabla `idempotency_keys`, migración `0013`) en enviar, SINPE, servicios, **convertir** y aportes; los cobros son idempotentes por `paid_by`. Cierra la **carrera de doble pago** que existía en cobros/vaquitas (ahora `FOR UPDATE` + una sola transacción).
 - **Comercios** (`merchants`, migración `0014`): multi-comercio, KYC ligero, estados `pending/verified/rejected` y `commission_bps` (default 50 = 0,50 %). Solo un comercio verificado y propio cobra; la comisión es entera (`A*bps/10000`) y se asienta como `pagador −A, comercio +(A−f), SYSTEM:FEES +f`.
-- **Rol admin server-side** (`users.role`, migración `0015`; `/api/admin/*`): el rol no viaja en el JWT ni en `/me`. Bootstrap en prod por env `ADMIN_EMAIL`; el seed demo deja admin a `maria@ticopay.cr`. **Evolucionado a RBAC completo** — ver la sección "Back-office" más abajo.
+- **Rol admin server-side** (`users.role`, migración `0015`; `/api/admin/*`): el rol no viaja en el JWT ni en `/me`. Bootstrap en prod por env `ADMIN_EMAIL`; el seed demo deja admin a `maria@tuanispay.cr`. **Evolucionado a RBAC completo** — ver la sección "Back-office" más abajo.
 - **Frontend:** secciones Comercio y Admin (i18n ES/EN), rótulo "simulado" en SINPE/Servicios, y sin reintento ciego de POSTs de dinero.
 - **Ledger completo (migración `0016`):** las conversiones se asientan como FX balanceado contra `SYSTEM:FX` (usuario −F/+T, mesa FX +F/−T) y los pagos de servicios contra `SYSTEM:CLEARING`, así que **todo cambio de saldo es reconciliable** contra el ledger. La regla de saldo no-negativo pasó de un `CHECK` de columna a un trigger que exime a las cuentas de sistema (sus posiciones pueden ser negativas).
 - **`Idempotency-Key` obligatoria** en los POST de dinero (send, SINPE, servicios, convertir, aportes): el server devuelve 400 si falta.
@@ -67,7 +67,7 @@ Gestión de roles "digna de fintech" y panel de analítica, sobre el RBAC del ri
 - **Bitácora de auditoría** (`admin_audit_log`, migración `0018`): ver la sección Back-office. Registro append-only y transaccional de toda mutación privilegiada, con lectura en `GET /api/admin/audit` y panel "Auditoría".
 - **Sesiones:** `POST /api/auth/logout` autenticado que bumpea `token_version` (salir de **todos** los dispositivos); `/auth/refresh` rechaza cuentas desactivadas (defensa en profundidad); `RefreshTTL` reducido de 7 días a **48 h**.
 - **Credenciales:** contraseña de personal ≥10 con letras y dígitos (`validateStaffPassword`); anti-enumeración en el inicio de login por passkey (misma respuesta exista o no la cuenta); **anti-replay TOTP** (migración `0019`, `user_totp.last_used_period`): se registra el periodo de 30 s consumido y se rechaza el reuso del mismo código en login/confirmación/desactivación.
-- **Pendiente (parte 2):** mover el refresh a **cookie httpOnly + CSRF** y sacar el access token de `localStorage`. Bloqueado por la topología **cross-site** actual (`ticopay.vercel.app` ↔ `ticopay.onrender.com`): una cookie de refresh tendría que ser de terceros (`SameSite=None`), que Safari bloquea y Chrome retira. Hacerlo bien exige un despliegue same-site (dominio propio `app.ticopay.cr` + `api.ticopay.cr`, o un proxy de Vercel `/api/*`→Render) para usar cookie first-party `SameSite=Lax`.
+- **Pendiente (parte 2):** mover el refresh a **cookie httpOnly + CSRF** y sacar el access token de `localStorage`. Bloqueado por la topología **cross-site** actual (`tuanispay.vercel.app` ↔ `tuanispay.onrender.com`): una cookie de refresh tendría que ser de terceros (`SameSite=None`), que Safari bloquea y Chrome retira. Hacerlo bien exige un despliegue same-site (dominio propio `app.tuanispay.cr` + `api.tuanispay.cr`, o un proxy de Vercel `/api/*`→Render) para usar cookie first-party `SameSite=Lax`.
 
 ---
 
@@ -104,5 +104,5 @@ Gestión de roles "digna de fintech" y panel de analítica, sobre el RBAC del ri
 - **Go 1.25** requerido (go-webauthn) → Dockerfile usa `golang:1.25-alpine`. Build local: Go portable en `$env:TEMP\goportable\go`; front `npm run build`. (Docker Desktop local crashea por un bug suyo — no se usa.)
 
 ## ▶️ Cómo retomar
-Abrir Claude Code en `C:\Users\Keilor Martinez\Downloads\ticopay` y decir:
-> "Continuá Tico Pay desde el ROADMAP.md — arrancá con [ítem]."
+Abrir Claude Code en `C:\Users\Keilor Martinez\Downloads\tuanispay` y decir:
+> "Continuá TuanisPay desde el ROADMAP.md — arrancá con [ítem]."

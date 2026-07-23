@@ -9,7 +9,7 @@ const es: Dict = {
   'common.loading': 'Cargando…',
   'common.waking': 'Despertando el servidor, unos segundos…',
   'btn.signout': 'Salir',
-  'common.simulated': 'Demo: liquida en el libro interno de Tico Pay; no usa el riel real (SINPE/biller).',
+  'common.simulated': 'Demo: liquida en el libro interno de TuanisPay; no usa el riel real (SINPE/biller).',
 
   // Auth
   'auth.login.title': 'Iniciá sesión',
@@ -61,13 +61,13 @@ const es: Dict = {
   'verify.pending': 'Verificando tu correo…',
   'verify.ok': '✓ ¡Correo verificado! Gracias.',
   'verify.err': 'El enlace es inválido o expiró. Pedí uno nuevo desde tu cuenta.',
-  'verify.toApp': 'Ir a Tico Pay',
+  'verify.toApp': 'Ir a TuanisPay',
   'verify.banner': 'Verificá tu correo para asegurar tu cuenta.',
   'verify.banner.resend': 'Reenviar correo',
   'verify.banner.sent': '¡Correo enviado! Revisá tu bandeja.',
 
   // Dashboard
-  'dash.netWorth': 'Tu dinero en Tico Pay',
+  'dash.netWorth': 'Tu dinero en TuanisPay',
   'dash.myMoney': 'Mis monedas',
   'dash.myCrypto': 'Mis criptomonedas',
   'dash.seeAll': 'Ver todas ({n})',
@@ -137,7 +137,7 @@ const es: Dict = {
   'send.title': 'Enviar dinero',
   'send.sub': 'Al instante, por número de teléfono o correo. Fiat o cripto.',
   'send.to': 'Para (teléfono o correo)',
-  'send.to.ph': '8888-0000 o carlos@ticopay.cr',
+  'send.to.ph': '8888-0000 o carlos@tuanispay.cr',
   'send.currency': 'Moneda',
   'send.amount': 'Monto ({sym})',
   'send.detail': 'Detalle (opcional)',
@@ -172,7 +172,7 @@ const es: Dict = {
   'cobros.err.amount': 'Indicá un monto',
   'cobros.err.pay': 'No se pudo pagar',
   'cobros.err.create': 'No se pudo crear el cobro',
-  'cobros.shareMsg': 'Te hago un cobro por Tico Pay:',
+  'cobros.shareMsg': 'Te hago un cobro por TuanisPay:',
 
   // Status pills
   'status.pending': 'Pendiente',
@@ -219,7 +219,7 @@ const es: Dict = {
   'vaq.err.amount': 'Indicá un monto',
   'vaq.err.contribute': 'No se pudo aportar',
   'vaq.err.create': 'No se pudo crear la vaquita',
-  'vaq.shareMsg': '¡Aportá a esta vaquita en Tico Pay!',
+  'vaq.shareMsg': '¡Aportá a esta vaquita en TuanisPay!',
 
   // Merchant (comercio) + Admin
   'merch.register': 'Registrar un comercio',
@@ -250,7 +250,7 @@ const es: Dict = {
   'merch.charge.btn': 'Generar QR de cobro',
   'merch.charge.busy': 'Generando…',
   'merch.charge.created': '¡QR de cobro listo! Mostralo o compartilo:',
-  'merch.shareMsg': 'Pagá tu compra por Tico Pay:',
+  'merch.shareMsg': 'Pagá tu compra por TuanisPay:',
   'merch.err.name': 'Poné el nombre del comercio',
   'merch.err.create': 'No se pudo registrar el comercio',
   'merch.err.charge': 'No se pudo generar el cobro',
@@ -418,7 +418,7 @@ const es: Dict = {
   'pay.closed.title': 'Cobro ya cerrado',
   'pay.closed.sub': 'Este cobro ya fue pagado o cancelado.',
   'pay.title': 'Pagar a {name}',
-  'pay.byTicoPay': 'Cobro por Tico Pay',
+  'pay.byTuanisPay': 'Cobro por TuanisPay',
   'pay.openAmount': 'Monto abierto',
   'pay.amount': 'Monto a pagar ({sym})',
   'pay.btn': 'Pagar ahora',
@@ -448,7 +448,7 @@ const en: Dict = {
   'common.loading': 'Loading…',
   'common.waking': 'Waking the server, just a moment…',
   'btn.signout': 'Sign out',
-  'common.simulated': "Demo: settles on Tico Pay's internal ledger; it does not use the real rail (SINPE/biller).",
+  'common.simulated': "Demo: settles on TuanisPay's internal ledger; it does not use the real rail (SINPE/biller).",
 
   'auth.login.title': 'Sign in',
   'auth.register.title': 'Create your account',
@@ -497,12 +497,12 @@ const en: Dict = {
   'verify.pending': 'Verifying your email…',
   'verify.ok': '✓ Email verified! Thanks.',
   'verify.err': 'The link is invalid or expired. Request a new one from your account.',
-  'verify.toApp': 'Go to Tico Pay',
+  'verify.toApp': 'Go to TuanisPay',
   'verify.banner': 'Verify your email to secure your account.',
   'verify.banner.resend': 'Resend email',
   'verify.banner.sent': 'Email sent! Check your inbox.',
 
-  'dash.netWorth': 'Your money in Tico Pay',
+  'dash.netWorth': 'Your money in TuanisPay',
   'dash.myMoney': 'My currencies',
   'dash.myCrypto': 'My crypto',
   'dash.seeAll': 'See all ({n})',
@@ -567,7 +567,7 @@ const en: Dict = {
   'send.title': 'Send money',
   'send.sub': 'Instantly, by phone number or email. Fiat or crypto.',
   'send.to': 'To (phone or email)',
-  'send.to.ph': '8888-0000 or carlos@ticopay.cr',
+  'send.to.ph': '8888-0000 or carlos@tuanispay.cr',
   'send.currency': 'Currency',
   'send.amount': 'Amount ({sym})',
   'send.detail': 'Note (optional)',
@@ -601,7 +601,7 @@ const en: Dict = {
   'cobros.err.amount': 'Enter an amount',
   'cobros.err.pay': "Couldn't pay",
   'cobros.err.create': "Couldn't create the request",
-  'cobros.shareMsg': "I'm requesting a payment via Tico Pay:",
+  'cobros.shareMsg': "I'm requesting a payment via TuanisPay:",
 
   'status.pending': 'Pending',
   'status.paid': 'Paid',
@@ -644,7 +644,7 @@ const en: Dict = {
   'vaq.err.amount': 'Enter an amount',
   'vaq.err.contribute': "Couldn't chip in",
   'vaq.err.create': "Couldn't create the pool",
-  'vaq.shareMsg': 'Chip in to this pool on Tico Pay!',
+  'vaq.shareMsg': 'Chip in to this pool on TuanisPay!',
 
   'merch.register': 'Register a merchant',
   'merch.register.sub': 'Charge by QR with a low commission. An admin verifies it before it can charge.',
@@ -674,7 +674,7 @@ const en: Dict = {
   'merch.charge.btn': 'Generate QR charge',
   'merch.charge.busy': 'Generating…',
   'merch.charge.created': 'QR charge ready! Show or share it:',
-  'merch.shareMsg': 'Pay your purchase via Tico Pay:',
+  'merch.shareMsg': 'Pay your purchase via TuanisPay:',
   'merch.err.name': 'Enter the merchant name',
   'merch.err.create': "Couldn't register the merchant",
   'merch.err.charge': "Couldn't generate the charge",
@@ -836,7 +836,7 @@ const en: Dict = {
   'pay.closed.title': 'Request already closed',
   'pay.closed.sub': 'This request was already paid or cancelled.',
   'pay.title': 'Pay {name}',
-  'pay.byTicoPay': 'Request via Tico Pay',
+  'pay.byTuanisPay': 'Request via TuanisPay',
   'pay.openAmount': 'Open amount',
   'pay.amount': 'Amount to pay ({sym})',
   'pay.btn': 'Pay now',
@@ -872,10 +872,10 @@ interface I18n {
 const Ctx = createContext<I18n | null>(null)
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(() => ((localStorage.getItem('ticopay.lang') as Lang) || 'es'))
+  const [lang, setLangState] = useState<Lang>(() => ((localStorage.getItem('tuanispay.lang') as Lang) || 'es'))
 
   function setLang(l: Lang) {
-    localStorage.setItem('ticopay.lang', l)
+    localStorage.setItem('tuanispay.lang', l)
     setLangState(l)
   }
 

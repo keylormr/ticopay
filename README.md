@@ -1,11 +1,11 @@
-# Tico Pay 🇨🇷
+# TuanisPay 🇨🇷
 
 Pagos entre personas (P2P) en colones costarricenses. Full-stack: **Go + Postgres** (backend) y **React + Vite** (frontend), con tema de la bandera de Costa Rica.
 
 ## Arquitectura
 
 ```
-ticopay/
+tuanispay/
 ├── backend/            API en Go (chi + pgx + JWT)
 │   ├── cmd/server/     punto de entrada
 │   ├── internal/
@@ -53,8 +53,8 @@ npm run dev                 # http://localhost:5174
 
 | Correo              | Contraseña    | Saldo        |
 | ------------------- | ------------- | ------------ |
-| maria@ticopay.cr    | `password123` | ₡250 000,00  |
-| carlos@ticopay.cr   | `password123` | ₡75 000,00   |
+| maria@tuanispay.cr    | `password123` | ₡250 000,00  |
+| carlos@tuanispay.cr   | `password123` | ₡75 000,00   |
 
 ## API
 

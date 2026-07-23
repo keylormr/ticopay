@@ -1,4 +1,4 @@
--- Tico Pay initial schema
+-- TuanisPay initial schema
 -- Money is stored as integer céntimos (1 colón = 100 céntimos) to avoid float drift.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

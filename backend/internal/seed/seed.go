@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"ticopay/backend/internal/auth"
+	"tuanispay/backend/internal/auth"
 )
 
 type demoUser struct {
@@ -22,9 +22,9 @@ type demoUser struct {
 
 var demoUsers = []demoUser{
 	// ₡250 000 · $500 · 0.005 BTC · 0.1 ETH · 100 USDT
-	{"maria@ticopay.cr", "María Jiménez", "8888-0001", 25000000, 50000, 500000, 10000000, 10000},
+	{"maria@tuanispay.cr", "María Jiménez", "8888-0001", 25000000, 50000, 500000, 10000000, 10000},
 	// ₡75 000 · $200
-	{"carlos@ticopay.cr", "Carlos Rodríguez", "8888-0002", 7500000, 20000, 0, 0, 0},
+	{"carlos@tuanispay.cr", "Carlos Rodríguez", "8888-0002", 7500000, 20000, 0, 0, 0},
 }
 
 const demoPassword = "password123"
@@ -36,7 +36,7 @@ func Run(ctx context.Context, pool *pgxpool.Pool) error {
 	// never seed (and would never get a demo admin).
 	var count int
 	if err := pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM users WHERE email NOT LIKE '%@system.ticopay'`).Scan(&count); err != nil {
+		`SELECT COUNT(*) FROM users WHERE email NOT LIKE '%@system.tuanispay'`).Scan(&count); err != nil {
 		return fmt.Errorf("count users: %w", err)
 	}
 	if count > 0 {
@@ -78,14 +78,14 @@ func Run(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 
 	// A demo vaquita and a pending cobro so the new features aren't empty.
-	if maria, ok := ids["maria@ticopay.cr"]; ok {
+	if maria, ok := ids["maria@tuanispay.cr"]; ok {
 		_, _ = pool.Exec(ctx,
 			`INSERT INTO pools (owner_id, name, description, goal_cents, currency)
 			 VALUES ($1, 'Cumpleaños de la oficina 🎂', 'Juntemos para el queque y el regalo', 5000000, 'CRC')`,
 			maria)
 	}
-	if maria, ok := ids["maria@ticopay.cr"]; ok {
-		if carlos, ok2 := ids["carlos@ticopay.cr"]; ok2 {
+	if maria, ok := ids["maria@tuanispay.cr"]; ok {
+		if carlos, ok2 := ids["carlos@tuanispay.cr"]; ok2 {
 			_, _ = pool.Exec(ctx,
 				`INSERT INTO payment_requests (requester_id, target_user_id, amount_cents, currency, description)
 				 VALUES ($1, $2, 1200000, 'CRC', 'Almuerzo del viernes 🌮')`,
@@ -95,7 +95,7 @@ func Run(ctx context.Context, pool *pgxpool.Pool) error {
 
 	// Promote the demo account to admin and give it a verified demo merchant so
 	// the commerce and admin flows aren't empty on a fresh database.
-	if maria, ok := ids["maria@ticopay.cr"]; ok {
+	if maria, ok := ids["maria@tuanispay.cr"]; ok {
 		_, _ = pool.Exec(ctx, `UPDATE users SET role = 'admin' WHERE id = $1`, maria)
 		_, _ = pool.Exec(ctx,
 			`INSERT INTO merchants (owner_id, name, category, legal_name, id_type, id_number, status, commission_bps)

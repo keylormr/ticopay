@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"ticopay/backend/internal/models"
+	"tuanispay/backend/internal/models"
 )
 
 func (a *App) fetchUser(ctx context.Context, uid string) (models.User, error) {
@@ -67,7 +67,7 @@ func (a *App) handleListTransactions(w http.ResponseWriter, r *http.Request) {
 		       CASE WHEN fa.user_id = $1 AND ta.user_id = $1 THEN 'self'
 		            WHEN fa.user_id = $1 THEN 'out'
 		            ELSE 'in' END AS direction,
-		       COALESCE(CASE WHEN fa.user_id = $1 THEN tu.full_name ELSE fu.full_name END, 'Tico Pay') AS counterpart,
+		       COALESCE(CASE WHEN fa.user_id = $1 THEN tu.full_name ELSE fu.full_name END, 'TuanisPay') AS counterpart,
 		       t.amount_cents, t.currency, t.description, t.status, t.kind, t.created_at
 		FROM transactions t
 		LEFT JOIN accounts fa ON fa.id = t.from_account_id

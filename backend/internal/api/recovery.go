@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"ticopay/backend/internal/auth"
+	"tuanispay/backend/internal/auth"
 )
 
 // Recovery codes let a passwordless user back into their account when every

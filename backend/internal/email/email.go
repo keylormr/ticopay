@@ -20,7 +20,7 @@ type Sender interface {
 // Config is the subset of app config this package needs.
 type Config struct {
 	APIKey string // RESEND_API_KEY; empty → dev log sender
-	From   string // RESEND_FROM, e.g. "Tico Pay <onboarding@resend.dev>"
+	From   string // RESEND_FROM, e.g. "TuanisPay <onboarding@resend.dev>"
 	Debug  bool   // EMAIL_DEBUG: dev log sender prints the link. NEVER in prod.
 }
 

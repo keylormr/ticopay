@@ -102,7 +102,7 @@ func (a *App) handleTotpSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, err := totp.Generate(totp.GenerateOpts{Issuer: "Tico Pay", AccountName: email})
+	key, err := totp.Generate(totp.GenerateOpts{Issuer: "TuanisPay", AccountName: email})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "no se pudo configurar el 2FA")
 		return

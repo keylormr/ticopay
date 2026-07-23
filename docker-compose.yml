@@ -3,20 +3,20 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: ticopay-db
+    container_name: tuanispay-db
     environment:
-      POSTGRES_USER: ticopay
-      POSTGRES_PASSWORD: ticopay_dev
-      POSTGRES_DB: ticopay
+      POSTGRES_USER: tuanispay
+      POSTGRES_PASSWORD: tuanispay_dev
+      POSTGRES_DB: tuanispay
     ports:
       - '5433:5432'
     volumes:
-      - ticopay_pgdata:/var/lib/postgresql/data
+      - tuanispay_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ticopay -d ticopay']
+      test: ['CMD-SHELL', 'pg_isready -U tuanispay -d tuanispay']
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
-  ticopay_pgdata:
+  tuanispay_pgdata:

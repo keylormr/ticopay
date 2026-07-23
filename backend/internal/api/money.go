@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"ticopay/backend/internal/models"
+	"tuanispay/backend/internal/models"
 )
 
 // rowQuerier is satisfied by both *pgxpool.Pool and pgx.Tx.
