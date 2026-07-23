@@ -14,13 +14,14 @@ import (
 // Prometheus text format. No external dependency; the request middleware
 // updates the counters and handleMetrics renders them on demand.
 type metricsState struct {
-	startedAt time.Time
-	requests  atomic.Int64
-	inflight  atomic.Int64
-	s2xx      atomic.Int64
-	s3xx      atomic.Int64
-	s4xx      atomic.Int64
-	s5xx      atomic.Int64
+	startedAt        time.Time
+	requests         atomic.Int64
+	inflight         atomic.Int64
+	s2xx             atomic.Int64
+	s3xx             atomic.Int64
+	s4xx             atomic.Int64
+	s5xx             atomic.Int64
+	ledgerDriftCents atomic.Int64 // total abs drift from the last reconciliation
 }
 
 var metrics = &metricsState{startedAt: time.Now()}
@@ -81,6 +82,7 @@ func (a *App) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "# HELP tuanispay_http_requests_inflight In-flight HTTP requests.\n# TYPE tuanispay_http_requests_inflight gauge\ntuanispay_http_requests_inflight %d\n", metrics.inflight.Load())
 	fmt.Fprintf(w, "# HELP tuanispay_goroutines Current goroutines.\n# TYPE tuanispay_goroutines gauge\ntuanispay_goroutines %d\n", runtime.NumGoroutine())
 	fmt.Fprintf(w, "# HELP tuanispay_mem_alloc_bytes Allocated heap bytes.\n# TYPE tuanispay_mem_alloc_bytes gauge\ntuanispay_mem_alloc_bytes %d\n", mem.Alloc)
+	fmt.Fprintf(w, "# HELP tuanispay_ledger_drift_cents Total absolute drift between cached balances and the journal at the last reconciliation (should be 0).\n# TYPE tuanispay_ledger_drift_cents gauge\ntuanispay_ledger_drift_cents %d\n", metrics.ledgerDriftCents.Load())
 
 	// DB pool saturation — nil-guarded so the endpoint (and its tests) work
 	// without a live pool.
