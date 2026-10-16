@@ -89,6 +89,10 @@ func main() {
 	// without bound (a key is only needed within a client's retry window).
 	go app.ReapIdempotencyKeys(ctx, 6*time.Hour)
 
+	// Continuously reconcile cached balances against the journal, publishing the
+	// drift metric and alerting on any divergence (which should always be zero).
+	go app.ReconcileLoop(ctx, 5*time.Minute)
+
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           app.Router(),

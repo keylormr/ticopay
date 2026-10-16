@@ -59,9 +59,12 @@ func Run(ctx context.Context, pool *pgxpool.Pool) error {
 			return fmt.Errorf("seed user %s: %w", du.email, err)
 		}
 		ids[du.email] = userID
+		// Demo funding sits outside the ledger, so record it as the account's
+		// opening offset — keeps the reconciliation invariant (balance =
+		// opening_offset + journal) exact from the start.
 		if _, err := pool.Exec(ctx,
-			`INSERT INTO accounts (user_id, currency, balance_cents) VALUES
-			 ($1, 'CRC', $2), ($1, 'USD', $3), ($1, 'BTC', $4), ($1, 'ETH', $5), ($1, 'USDT', $6)`,
+			`INSERT INTO accounts (user_id, currency, balance_cents, opening_offset_cents) VALUES
+			 ($1, 'CRC', $2, $2), ($1, 'USD', $3, $3), ($1, 'BTC', $4, $4), ($1, 'ETH', $5, $5), ($1, 'USDT', $6, $6)`,
 			userID, du.balanceCRC, du.balanceUSD, du.balanceBTC, du.balanceETH, du.balanceUSDT,
 		); err != nil {
 			return fmt.Errorf("seed accounts %s: %w", du.email, err)

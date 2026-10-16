@@ -56,8 +56,10 @@ func makeUser(t *testing.T, pool *pgxpool.Pool, currency string, balance int64) 
 	).Scan(&userID); err != nil {
 		t.Fatalf("create user: %v", err)
 	}
+	// Funding an account directly (outside the ledger) sets its opening offset,
+	// mirroring the seed path, so the reconciliation invariant holds.
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO accounts (user_id, currency, balance_cents) VALUES ($1, $2, $3)`,
+		`INSERT INTO accounts (user_id, currency, balance_cents, opening_offset_cents) VALUES ($1, $2, $3, $3)`,
 		userID, currency, balance); err != nil {
 		t.Fatalf("create account: %v", err)
 	}

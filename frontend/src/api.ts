@@ -169,6 +169,8 @@ export interface LedgerHealth {
   balanced: boolean
   netByCurrency: { currency: Currency; netCents: number }[]
   systemAccounts: { account: string; currency: Currency; balanceCents: number }[]
+  drift: { accountId: string; userName: string; currency: Currency; driftCents: number }[]
+  driftTotalCents: number
 }
 
 export interface TxReportRow {

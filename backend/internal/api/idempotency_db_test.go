@@ -182,8 +182,11 @@ func TestDomainFailureReleasesIdempotencyKey(t *testing.T) {
 	}
 	// Top the sender up and retry the SAME key with the SAME payload: because the
 	// failed attempt released the key, this must now execute (not 409/replay).
+	// Top up off-ledger, bumping the opening offset by the same delta so the
+	// reconciliation invariant (balance = opening_offset + journal) still holds.
 	if _, err := pool.Exec(context.Background(),
-		`UPDATE accounts SET balance_cents = 100000 WHERE user_id = $1 AND currency = 'CRC'`, sender); err != nil {
+		`UPDATE accounts SET opening_offset_cents = opening_offset_cents + 100000 - balance_cents,
+		        balance_cents = 100000 WHERE user_id = $1 AND currency = 'CRC'`, sender); err != nil {
 		t.Fatalf("top up: %v", err)
 	}
 	if rec := doSinpe(t, a, sender, "88880005", 5, "k-release"); rec.Code != http.StatusCreated {

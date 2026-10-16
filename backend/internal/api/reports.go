@@ -278,8 +278,21 @@ func (a *App) handleReportLedgerHealth(w http.ResponseWriter, r *http.Request) {
 		sys = append(sys, s)
 	}
 
+	// Reconciliation: does every cached balance still equal opening_offset +
+	// journal? Internal net-zero is necessary but not sufficient; drift here
+	// means a balance moved without a matching ledger entry.
+	drifts, err := a.reconcileLedger(ctx)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not reconcile ledger")
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"balanced": balanced, "netByCurrency": net, "systemAccounts": sys,
+		"balanced":        balanced && len(drifts) == 0,
+		"netByCurrency":   net,
+		"systemAccounts":  sys,
+		"drift":           drifts,
+		"driftTotalCents": totalAbsDrift(drifts),
 	})
 }
 
